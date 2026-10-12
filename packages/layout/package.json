@@ -1,0 +1,15 @@
+{
+  "name": "@tinycanvas/layout",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "elkjs": "0.12.0"
+  }
+}

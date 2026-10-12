@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <title>TinyCanvas perf</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+      #board { position: relative; width: 100vw; height: 100vh; }
+      #hud { position: fixed; right: 8px; top: 8px; background: rgba(0,0,0,.6); color: #fff; font: 12px monospace; padding: 4px 8px; border-radius: 4px; z-index: 10; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="board"></div>
+    <div id="hud"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

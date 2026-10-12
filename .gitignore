@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+backups/
+*.log
+.DS_Store
+.data/
+
+# 本機開發設定（範本為 dev.env.example）
+dev.env

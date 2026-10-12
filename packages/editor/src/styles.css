@@ -1,0 +1,104 @@
+/* 編輯中的文字樣式，需與畫布渲染器的排版一致（字型、行高、列點縮排） */
+.tc-richtext-host .tc-richtext {
+  outline: none;
+  caret-color: currentColor;
+  font-family: 'Noto Sans TC Variable', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+}
+.tc-richtext-host .tc-richtext p {
+  margin: 0;
+}
+.tc-richtext-host .tc-richtext h1 {
+  margin: 0;
+  font-size: 1.6em;
+  font-weight: 700;
+}
+.tc-richtext-host .tc-richtext h2 {
+  margin: 0;
+  font-size: 1.35em;
+  font-weight: 700;
+}
+.tc-richtext-host .tc-richtext h3 {
+  margin: 0;
+  font-size: 1.15em;
+  font-weight: 700;
+}
+.tc-richtext-host .tc-richtext ul,
+.tc-richtext-host .tc-richtext ol {
+  margin: 0;
+  padding-left: 1.3em;
+  text-align: left;
+}
+.tc-richtext-host .tc-richtext ul {
+  list-style: disc;
+}
+.tc-richtext-host .tc-richtext ol {
+  list-style: decimal;
+}
+.tc-richtext-host .tc-richtext a {
+  color: #006db6;
+  text-decoration: underline;
+}
+.tc-richtext-host .tc-richtext strong {
+  font-weight: 700;
+}
+
+/* 刪除線、行內程式碼、螢光標記（顏色與 packages/shared 的 RICH_TEXT_STYLE 一致） */
+.tc-richtext-host .tc-richtext s {
+  text-decoration: line-through;
+}
+.tc-richtext-host .tc-richtext code {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Noto Sans TC Variable', monospace;
+  font-size: 0.9em;
+  background: #eef1f4;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.tc-richtext-host .tc-richtext mark {
+  background: #fde68a;
+  color: inherit;
+}
+/* 程式碼區塊：等寬字型 0.9em（只縮小一次，內層 code 不再縮小）、保留空白與換行 */
+.tc-richtext-host .tc-richtext pre {
+  margin: 0;
+  padding: 8px;
+  border-radius: 4px;
+  background: #f3f5f7;
+  text-align: left;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Noto Sans TC Variable', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+.tc-richtext-host .tc-richtext pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+/* 核取清單：與畫布相同，每層縮排 1.3em，核取方塊（0.9em）置中於這一欄、垂直置中於第一行 */
+.tc-richtext-host .tc-richtext ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 1.3em;
+  text-align: left;
+}
+.tc-richtext-host .tc-richtext ul[data-type='taskList'] li {
+  position: relative;
+}
+.tc-richtext-host .tc-richtext ul[data-type='taskList'] li > label {
+  position: absolute;
+  left: -1.3em;
+  top: 0;
+  width: 1.3em;
+  height: 1.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.tc-richtext-host .tc-richtext ul[data-type='taskList'] li > label input {
+  width: 0.9em;
+  height: 0.9em;
+  margin: 0;
+  accent-color: #0087dc;
+}

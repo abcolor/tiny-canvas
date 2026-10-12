@@ -1,0 +1,140 @@
+// TinyCanvas 資料表定義，見 docs/SPEC.md 第 8.1 節
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  sessions Session[]
+  folders  Folder[]
+  files    File[]
+  assets   Asset[]
+
+  @@map("users")
+}
+
+model Session {
+  // id 是 cookie 內隨機 token 的 SHA-256，資料庫外洩時無法直接拿來登入
+  id        String   @id
+  userId    String   @map("user_id") @db.Uuid
+  csrfToken String   @map("csrf_token")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Folder {
+  id        String    @id @default(uuid()) @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  parentId  String?   @map("parent_id") @db.Uuid
+  name      String
+  isTabbed  Boolean   @default(false) @map("is_tabbed")
+  sortKey   String    @default("a0") @map("sort_key")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderTree")
+  files    File[]
+
+  @@index([ownerId, parentId])
+  @@map("folders")
+}
+
+model File {
+  id         String    @id @default(uuid()) @db.Uuid
+  ownerId    String    @map("owner_id") @db.Uuid
+  folderId   String?   @map("folder_id") @db.Uuid
+  // 本期只有 board；日後用來存放 doc
+  type       String    @default("board")
+  title      String
+  isFavorite Boolean   @default(false) @map("is_favorite")
+  searchText String    @default("") @map("search_text")
+  assetIds   String[]  @default([]) @map("asset_ids") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  owner      User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folder     Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  document   Document?
+  versions   DocVersion[]
+  shareLinks ShareLink[]
+
+  @@index([ownerId, folderId])
+  @@map("files")
+}
+
+model Document {
+  fileId      String   @id @map("file_id") @db.Uuid
+  state       Bytes
+  contentHash String   @map("content_hash")
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model DocVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  fileId      String   @map("file_id") @db.Uuid
+  // gzip 壓縮後的 Yjs 完整狀態
+  state       Bytes
+  contentHash String   @map("content_hash")
+  assetIds    String[] @default([]) @map("asset_ids") @db.Uuid
+  // 手動命名的版本才有 label；有 label 的版本不受保留期限制
+  label       String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId, createdAt])
+  @@map("doc_versions")
+}
+
+model ShareLink {
+  id           String    @id @default(uuid()) @db.Uuid
+  fileId       String    @map("file_id") @db.Uuid
+  token        String    @unique
+  passwordHash String?   @map("password_hash")
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@map("share_links")
+}
+
+model Asset {
+  id         String   @id @default(uuid()) @db.Uuid
+  ownerId    String   @map("owner_id") @db.Uuid
+  storageKey String   @map("storage_key")
+  mime       String
+  size       Int
+  width      Int?
+  height     Int?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("assets")
+}

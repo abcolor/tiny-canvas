@@ -1,0 +1,4 @@
+#!/bin/sh
+# 本機檢查：lint、typecheck、test。以 `git config core.hooksPath .githooks` 啟用
+set -e
+pnpm check

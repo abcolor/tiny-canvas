@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.turbo
+.git
+.env
+backups
+playwright-report
+test-results

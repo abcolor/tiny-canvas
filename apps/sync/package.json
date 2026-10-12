@@ -1,0 +1,30 @@
+{
+  "name": "@tinycanvas/sync",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "scripts": {
+    "dev": "tsx watch --env-file=../../dev.env src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hocuspocus/extension-database": "2.15.3",
+    "@hocuspocus/server": "2.15.3",
+    "@prisma/client": "6.19.3",
+    "@tinycanvas/db": "workspace:*",
+    "@tinycanvas/shared": "workspace:*",
+    "cookie": "1.1.1",
+    "jose": "5.10.0",
+    "pino": "9.14.0",
+    "prisma": "6.19.3",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "@hocuspocus/provider": "2.15.3",
+    "ws": "8.22.0"
+  }
+}

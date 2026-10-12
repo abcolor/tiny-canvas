@@ -1,0 +1,23 @@
+{
+  "name": "@tinycanvas/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src",
+    "prisma"
+  ],
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "node --env-file=../../dev.env ./node_modules/prisma/build/index.js migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "typecheck": "tsc -p tsconfig.json",
+    "deploy:dev": "node --env-file=../../dev.env ./node_modules/prisma/build/index.js migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "prisma": "6.19.3"
+  }
+}
