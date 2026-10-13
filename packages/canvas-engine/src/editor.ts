@@ -22,11 +22,13 @@ import {
 import { EditorModel, type Placement, type GeomPatch, type SectionDeleteMode } from './model';
 import { Renderer, type Camera } from './renderer';
 import {
+  alignGuides,
   clamp,
   containsPoint,
   dist,
   distToSegment,
   inflate,
+  nearestAlignLine,
   normalizeRect,
   objectCorners,
   rectCenter,
@@ -140,6 +142,7 @@ type Gesture =
       proportional: boolean;
       plan: Map<string, GeomPatch>;
       to: Rect;
+      snapRefs: Rect[] | null;
     }
   | { kind: 'rotate'; units: string[]; center: Point; startAngle: number; startRotation: number; delta: number }
   | { kind: 'create'; tool: Tool; startWorld: Point; curWorld: Point }
@@ -1995,6 +1998,7 @@ export class BoardEditor {
       proportional: m.mustScaleProportionally(units),
       plan: new Map(),
       to: f.box,
+      snapRefs: null,
     };
   }
 
@@ -2285,11 +2289,15 @@ export class BoardEditor {
     let y0 = b.y;
     let x1 = b.x + b.w;
     let y1 = b.y + b.h;
-    const snapV = (v: number) => (alt || rot ? v : snap(v, GRID_SIZE));
-    if (h.includes('w')) x0 = snapV(p.x);
-    if (h.includes('e')) x1 = snapV(p.x);
-    if (h.includes('n')) y0 = snapV(p.y);
-    if (h.includes('s')) y1 = snapV(p.y);
+    // 移動中的邊優先吸到附近物件的邊或中心（智慧參考線），否則吸附格線；旋轉中的物件與 Alt 不吸附
+    const smart = !alt && !rot;
+    const refs = smart ? (g.snapRefs ??= this.snapReferences()) : [];
+    const th = SNAP_PX / this.renderer.camera.zoom;
+    const snapV = (v: number, axis: 'x' | 'y') => (smart ? (nearestAlignLine(v, refs, axis, th) ?? snap(v, GRID_SIZE)) : v);
+    if (h.includes('w')) x0 = snapV(p.x, 'x');
+    if (h.includes('e')) x1 = snapV(p.x, 'x');
+    if (h.includes('n')) y0 = snapV(p.y, 'y');
+    if (h.includes('s')) y1 = snapV(p.y, 'y');
     const minS = 8;
     if (x1 - x0 < minS) {
       if (h.includes('w')) x0 = x1 - minS;
@@ -2335,6 +2343,18 @@ export class BoardEditor {
       to = { x: wc.x - to.w / 2, y: wc.y - to.h / 2, w: to.w, h: to.h };
     }
     g.to = to;
+    // 只為有移動的邊畫參考線（等比縮放時，跟著改變的另一軸也算）
+    const moved = (a: number, b0: number) => Math.abs(a - b0) > 1e-6;
+    this.guides = smart
+      ? alignGuides(
+          to,
+          {
+            xs: [to.x, to.x + to.w].filter((v, i) => moved(v, i ? b.x + b.w : b.x)),
+            ys: [to.y, to.y + to.h].filter((v, i) => moved(v, i ? b.y + b.h : b.y)),
+          },
+          refs,
+        )
+      : [];
     if (single && single.type !== 'group') {
       const patch: GeomPatch = { x: to.x, y: to.y, w: to.w, h: to.h };
       if (single.type === 'text' && (h === 'e' || h === 'w')) {

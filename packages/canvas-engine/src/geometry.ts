@@ -83,6 +83,48 @@ export function snap(v: number, grid: number): number {
   return Math.round(v / grid) * grid;
 }
 
+/** 物件框在某軸上可對齊的三條線：起邊、中心、終邊 */
+function rectLines(r: Rect, axis: 'x' | 'y'): number[] {
+  return axis === 'x' ? [r.x, r.x + r.w / 2, r.x + r.w] : [r.y, r.y + r.h / 2, r.y + r.h];
+}
+
+/** 縮放時把移動中的邊吸到附近物件的邊或中心：回傳 tol 以內最近的線，沒有則回傳 null */
+export function nearestAlignLine(v: number, refs: Rect[], axis: 'x' | 'y', tol: number): number | null {
+  let best: number | null = null;
+  for (const r of refs) {
+    for (const line of rectLines(r, axis)) {
+      if (Math.abs(line - v) <= tol && (best === null || Math.abs(line - v) < Math.abs(best - v))) best = line;
+    }
+  }
+  return best;
+}
+
+export interface AlignGuide {
+  axis: 'x' | 'y';
+  pos: number;
+  from: number;
+  to: number;
+}
+
+/**
+ * 縮放後的參考線：r 上指定的線（xs 為垂直線的 x、ys 為水平線的 y）與參考物件的邊或中心重合時，
+ * 畫一條從 r 延伸到所有重合物件的線
+ */
+export function alignGuides(r: Rect, lines: { xs: number[]; ys: number[] }, refs: Rect[]): AlignGuide[] {
+  const out: AlignGuide[] = [];
+  const eps = 1e-6;
+  for (const axis of ['x', 'y'] as const) {
+    for (const pos of axis === 'x' ? lines.xs : lines.ys) {
+      const hits = refs.filter((ref) => rectLines(ref, axis).some((l) => Math.abs(l - pos) < eps));
+      if (!hits.length) continue;
+      const cross = (q: Rect) => (axis === 'x' ? [q.y, q.y + q.h] : [q.x, q.x + q.w]);
+      const ends = [r, ...hits].flatMap(cross);
+      out.push({ axis, pos, from: Math.min(...ends), to: Math.max(...ends) });
+    }
+  }
+  return out;
+}
+
 /** 把 p 投影到從 origin 出發、角度為 step 度倍數中最接近的射線上（Shift 限制連線角度用） */
 export function snapAngle(origin: Point, p: Point, step = 45): Point {
   const dx = p.x - origin.x;
