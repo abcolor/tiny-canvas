@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { boardObjects, createUserAndLogin, newBoard, waitForEditor } from './helpers';
 
-// 連線工具列上的實線 / 虛線按鈕；顏色選單只保留顏色與粗細
+// 連線工具列上的實線 / 虛線按鈕；顏色選單只保留顏色（粗細改由工具列上的按鈕設定）
 test('連線的實線 / 虛線切換，另一個分頁一致', async ({ page, context }) => {
   await createUserAndLogin(page, 'linestyle');
   const fileId = await newBoard(page);

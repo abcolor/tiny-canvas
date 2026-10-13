@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Blend,
   Brush,
+  Check,
   ClipboardCopy,
   Copy,
   Group,
@@ -210,9 +211,9 @@ export function StyleBar({
               swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
               onPick={(c) => setStyle({ stroke: c })}
               extra={
-                <div className="mt-1.5 flex w-[110px] flex-col gap-1">
-                  {/* 連線的實線 / 虛線改由工具列上的按鈕切換 */}
-                  {onlyConnectors ? null : (
+                // 連線的實線 / 虛線改由工具列上的按鈕切換
+                onlyConnectors ? undefined : (
+                  <div className="mt-1.5 flex w-[110px] flex-col gap-1">
                     <Segmented
                       size="sm"
                       fullWidth
@@ -225,17 +226,17 @@ export function StyleBar({
                         { value: 'none', label: s.none },
                       ]}
                     />
-                  )}
-                  <Segmented
-                    size="sm"
-                    fullWidth
-                    value={style.strokeWidth ?? (onlyConnectors ? 2 : 1.5)}
-                    onChange={(v) => setStyle({ strokeWidth: v })}
-                    options={[1, 1.5, 2, 3, 4].map((w) => ({ value: w, label: String(w) }))}
-                  />
-                </div>
+                  </div>
+                )
               }
             />
+            )}
+            {onlyText || onlyIcons ? null : (
+              <StrokeWidthMenu
+                label={s.strokeWidth}
+                value={style.strokeWidth ?? (onlyConnectors ? 2 : 1.5)}
+                onPick={(v) => setStyle({ strokeWidth: v })}
+              />
             )}
             {onlyConnectors && first.type === 'connector' ? (
               <LineStyleToggle dashed={first.dashed} onPick={(dashed) => update({ dashed })} />
@@ -380,19 +381,8 @@ function ShapeAppearance({
         value={style.stroke ?? DEFAULT_SHAPE_COLOR}
         swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
         onPick={(c) => withMode({ stroke: c })}
-        extra={
-          <div className="mt-1.5 flex w-[110px] flex-col gap-0.5 text-[11px] text-ink-500">
-            {s.strokeWidth}
-            <Segmented
-              size="sm"
-              fullWidth
-              value={style.strokeWidth ?? 1.5}
-              onChange={(v) => onStyle({ strokeWidth: v })}
-              options={[1, 1.5, 2, 3, 4].map((w) => ({ value: w, label: String(w) }))}
-            />
-          </div>
-        }
       />
+      <StrokeWidthMenu label={s.strokeWidth} value={style.strokeWidth ?? 1.5} onPick={(v) => onStyle({ strokeWidth: v })} />
       <div className="flex items-center rounded-lg bg-ink-100 p-0.5" role="radiogroup" aria-label={s.appearance}>
         {modes.map((m) => (
           <Tooltip key={m.value} content={m.label}>
@@ -491,13 +481,8 @@ function IconStyleControls({
         value={value ?? '#33322d'}
         swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
         onPick={onColor}
-        extra={
-          <div className="mt-1.5 flex w-[110px] flex-col gap-0.5 text-[11px] text-ink-500">
-            {s.weight}
-            <Segmented size="sm" fullWidth value={weight} onChange={onWeight} options={[1, 1.5, 2, 2.5, 3].map((w) => ({ value: w, label: String(w) }))} />
-          </div>
-        }
       />
+      <StrokeWidthMenu label={s.weight} value={weight} options={[1, 1.5, 2, 2.5, 3]} onPick={onWeight} />
       <Tooltip content={s.replace}>
         <button
           type="button"
@@ -715,6 +700,47 @@ function ArrowMenu({ label, value, onPick, flip }: { label: string; value: Arrow
         {options.map((o) => (
           <MenuItem key={o} onSelect={() => onPick(o)}>
             <ArrowSample head={o} />
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+/** 邊框 / 線條粗細：工具列上的獨立按鈕，選單中每個選項顯示對應粗細的線條 */
+function StrokeWidthMenu({
+  label,
+  value,
+  onPick,
+  options = [1, 1.5, 2, 3, 4],
+}: {
+  label: string;
+  value: number;
+  onPick: (v: number) => void;
+  options?: number[];
+}) {
+  return (
+    <Menu>
+      <Tooltip content={label}>
+        <MenuTrigger asChild>
+          <button type="button" aria-label={label} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100">
+            <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden>
+              <path d="M2 3.5h12" stroke="currentColor" strokeWidth="1" />
+              <path d="M2 8h12" stroke="currentColor" strokeWidth="2" />
+              <path d="M2 13h12" stroke="currentColor" strokeWidth="3" />
+            </svg>
+          </button>
+        </MenuTrigger>
+      </Tooltip>
+      <MenuContent className="min-w-[120px]" aria-label={label}>
+        {options.map((w) => (
+          <MenuItem key={w} aria-label={String(w)} icon={w === value ? <Check className="h-4 w-4" /> : null} onSelect={() => onPick(w)}>
+            <span className="flex items-center gap-3">
+              <svg viewBox="0 0 40 8" className="h-2 w-10" aria-hidden>
+                <path d="M0 4h40" stroke="currentColor" strokeWidth={w} />
+              </svg>
+              <span className="tabular-nums">{w}</span>
+            </span>
           </MenuItem>
         ))}
       </MenuContent>
