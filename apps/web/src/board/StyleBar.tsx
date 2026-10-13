@@ -31,7 +31,7 @@ import {
   Ungroup,
 } from 'lucide-react';
 import type { BoardEditor, EditorState } from '@tinycanvas/canvas-engine';
-import { DEFAULT_PALETTE, DEFAULT_SHAPE_COLOR, SHAPE_ICON_NAMES, resolveStyle } from '@tinycanvas/canvas-engine';
+import { DEFAULT_PALETTE, DEFAULT_SHAPE_COLOR, resolveStyle } from '@tinycanvas/canvas-engine';
 import {
   getObjects,
   readObject,
@@ -62,7 +62,7 @@ import {
 } from '@tinycanvas/ui';
 import type { Editor } from '@tinycanvas/editor';
 import { ShapeGlyph } from './ShapeGlyph';
-import { IconLibrary } from './IconLibrary';
+import { IconLibrary, useIconSearch } from './IconLibrary';
 import { TextControls } from './TextControls';
 import { ArrangeMenuItems } from './ArrangeMenu';
 import { useDialogs } from '../components/dialogs';
@@ -804,13 +804,11 @@ function IconPositionPicker({ value, onPick }: { value: IconPosition; onPick: (v
 
 function IconPicker({ current, onPick }: { current: string | null; onPick: (name: string | null) => void }) {
   const [q, setQ] = useState('');
-  const names = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    const all = SHAPE_ICON_NAMES.filter((n) => n in lucideIcons);
-    return (query ? all.filter((n) => n.toLowerCase().includes(query)) : all).slice(0, 72);
-  }, [q]);
+  const [open, setOpen] = useState(false);
+  // 與圖示庫相同的搜尋（全部 Lucide 圖示、中文關鍵字與官方標籤）；選擇器空間有限，只列前 72 個結果
+  const names = useIconSearch(q, open).slice(0, 72);
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <Tooltip content={strings.style.icon}>
         <PopoverTrigger asChild>
           <button type="button" aria-label={strings.style.icon} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100">
@@ -820,6 +818,7 @@ function IconPicker({ current, onPick }: { current: string | null; onPick: (name
       </Tooltip>
       <PopoverContent className="w-72">
         <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={strings.style.iconSearch} aria-label={strings.style.iconSearch} />
+        {names.length === 0 ? <p className="py-6 text-center text-xs text-ink-400">{strings.icons.noResults}</p> : null}
         <div className="mt-2 grid max-h-56 grid-cols-8 gap-1 overflow-y-auto">
           {names.map((n) => {
             const Icon = lucideIcons[n as keyof typeof lucideIcons];

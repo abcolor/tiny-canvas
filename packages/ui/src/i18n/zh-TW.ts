@@ -258,7 +258,7 @@ export const zhTW: Strings = {
     iconBottom: '圖示在文字下方',
     iconLeft: '圖示在文字左側',
     iconRight: '圖示在文字右側',
-    iconSearch: '搜尋圖示（英文名稱）…',
+    iconSearch: '搜尋圖示（中文、英文或 Lucide 標籤）…',
     routing: '連線類型',
     straight: '直線',
     orthogonal: '折線',

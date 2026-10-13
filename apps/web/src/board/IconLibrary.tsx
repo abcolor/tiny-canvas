@@ -15,6 +15,18 @@ function loadTags() {
 const POPULAR = SHAPE_ICON_NAMES.filter((n) => n in lucideIcons);
 
 /**
+ * 圖示搜尋（圖示庫與形狀的圖示選擇器共用）：有關鍵字時從全部 Lucide 圖示中以中文關鍵字、名稱與官方標籤搜尋，
+ * 沒有關鍵字時回傳常用圖示。active 為 true 時才載入標籤資料
+ */
+export function useIconSearch(q: string, active: boolean): string[] {
+  const [tags, setTags] = useState<Record<string, string> | null>(null);
+  useEffect(() => {
+    if (active && !tags) void loadTags().then(setTags, () => undefined);
+  }, [active, tags]);
+  return useMemo(() => (q.trim() ? searchIcons(ALL_ICON_NAMES, q, tags) : POPULAR), [q, tags]);
+}
+
+/**
  * 圖示庫（快捷鍵 I）：從全部 Lucide Icons 中以中文或英文名稱搜尋，點一下插入（或替換）圖示。
  * 未輸入關鍵字時顯示常用圖示。
  */
@@ -33,11 +45,7 @@ export function IconLibrary({
 }) {
   const s = strings.icons;
   const [q, setQ] = useState('');
-  const [tags, setTags] = useState<Record<string, string> | null>(null);
-  useEffect(() => {
-    if (open && !tags) void loadTags().then(setTags, () => undefined);
-  }, [open, tags]);
-  const results = useMemo(() => (q.trim() ? searchIcons(ALL_ICON_NAMES, q, tags) : POPULAR), [q, tags]);
+  const results = useIconSearch(q, open);
   const pick = (name: string) => {
     onOpenChange(false);
     setQ('');

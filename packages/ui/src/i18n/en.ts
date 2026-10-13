@@ -267,7 +267,7 @@ export const en = {
     iconBottom: 'Icon below text',
     iconLeft: 'Icon left of text',
     iconRight: 'Icon right of text',
-    iconSearch: 'Search icons (English name)…',
+    iconSearch: 'Search icons (English, Chinese or Lucide tag)…',
     routing: 'Line type',
     straight: 'Straight',
     orthogonal: 'Elbow',
