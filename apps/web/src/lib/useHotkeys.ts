@@ -9,7 +9,7 @@ export interface Hotkey {
   allowInInput?: boolean;
 }
 
-function isEditable(t: EventTarget | null): boolean {
+export function isEditable(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
   if (!el) return false;
   return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';

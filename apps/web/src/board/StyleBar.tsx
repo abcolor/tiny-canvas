@@ -124,8 +124,9 @@ export function StyleBar({
     for (const o of selected) editor.updateObject(o.id, patch);
   };
 
-  // 放在選取範圍上方；空間不足時改放下方
-  const top = b.y > 64 ? b.y - 52 : b.y + b.h + 12;
+  // 放在選取範圍上方；空間不足時改放下方。有旋轉把手（上緣上方 24 px）時再往上移，避免蓋住把手
+  const above = state.can.rotate ? 84 : 52;
+  const top = b.y > above + 12 ? b.y - above : b.y + b.h + 12;
   const left = centerX + shift;
 
   return (

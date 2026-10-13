@@ -64,9 +64,9 @@ test('縮放、旋轉形狀時形狀內的物件不會被蓋住', async ({ page 
   const inner = (await boardObjects(page)).find((o) => o.id === ids.inner)!;
   expect(inner).toMatchObject({ w: 80, h: 50 });
 
-  // 旋轉：拖旋轉把手（handles() 回傳畫布座標）。浮動工具列會蓋住形狀上方的旋轉把手，這裡先隱藏
-  await page.addStyleTag({ content: '[role="toolbar"][aria-label="樣式工具列"] { display: none !important; }' });
+  // 旋轉：拖旋轉把手（handles() 回傳畫布座標）。浮動工具列不會蓋住旋轉把手
   const rot = await page.evaluate(() => (window as any).__tcEditor.handles().find((h: any) => h.kind === 'rotate').p);
+  expect(await page.evaluate(([x, y]) => (window as any).__tcEditor.element.contains(document.elementFromPoint(x, y)), [canvas.x + rot.x, canvas.y + rot.y])).toBe(true);
   await page.mouse.move(canvas.x + rot.x, canvas.y + rot.y);
   await page.mouse.down();
   await page.mouse.move(canvas.x + rot.x + 80, canvas.y + rot.y + 30, { steps: 5 });

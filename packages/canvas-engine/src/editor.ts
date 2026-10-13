@@ -275,6 +275,19 @@ export class BoardEditor {
     this.renderer.root.focus({ preventScroll: true });
   }
 
+  /**
+   * 焦點不在畫布上（例如剛點過浮動工具列的按鈕，或工具列消失後焦點落在 body）時，由 web app 轉送的按鍵。
+   * Enter、空白鍵、Tab 留給按鈕本身。引擎處理了這個按鍵時把焦點還給畫布，之後的按鍵直接由畫布處理。回傳是否處理
+   */
+  handleExternalKeyDown(e: KeyboardEvent): boolean {
+    if (this.destroyed || e.defaultPrevented || e.isComposing) return false;
+    if (e.key === 'Enter' || e.key === ' ' || e.code === 'Space' || e.key === 'Tab') return false;
+    this.onKeyDown(e);
+    if (!e.defaultPrevented) return false;
+    this.focus();
+    return true;
+  }
+
   /** 引擎的可聚焦根元素（web app 可以用來判斷焦點） */
   get element(): HTMLElement {
     return this.renderer.root;

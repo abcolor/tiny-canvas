@@ -4,7 +4,7 @@ import { BoardEditor } from '@tinycanvas/canvas-engine';
 import { textEditOrigin, type Editor } from '@tinycanvas/editor';
 import { getObjects, readObject, SHAPE_KINDS, type ShapeKind } from '@tinycanvas/shared';
 import { ConfirmDialog, MenuItem, MenuSeparator, PointMenu, strings } from '@tinycanvas/ui';
-import { useHotkeys } from '../lib/useHotkeys';
+import { isEditable, useHotkeys } from '../lib/useHotkeys';
 import { useDialogs } from '../components/dialogs';
 import { useEditorState } from './useEditorState';
 import { Toolbar } from './Toolbar';
@@ -83,7 +83,7 @@ export function BoardCanvas(props: BoardCanvasProps) {
   }, [props.doc, props.readOnly]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-ink-50">
+    <div data-board-root className="relative h-full w-full overflow-hidden bg-ink-50">
       <div ref={containerRef} className="absolute inset-0" data-testid="board-canvas" />
       {editor ? <BoardUi editor={editor} {...props} /> : null}
     </div>
@@ -119,6 +119,21 @@ function BoardUi({
           { combo: 'Mod+Shift+E', handler: () => setExportOpen(true) },
         ],
   );
+
+  // 點過工具列按鈕後焦點不在畫布上（或工具列消失後焦點落在 body），Delete、Mod+Z 等快捷鍵仍要作用在畫布：
+  // 焦點在白板區域內的按鈕或 body 上時，把按鍵轉給引擎；輸入框、對話框與選單內的按鍵不轉送
+  useEffect(() => {
+    if (!editor || readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (!t || editor.element.contains(t)) return;
+      if (t !== document.body && !editor.element.closest('[data-board-root]')?.contains(t)) return;
+      if (isEditable(t) || t.closest('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+      editor.handleExternalKeyDown(e);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editor, readOnly]);
 
   const requestLink = useCallback(() => {
     const ed = textEditor;
