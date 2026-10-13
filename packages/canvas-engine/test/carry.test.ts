@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeModel, rect, section } from './helpers';
+import { countTransactions, makeModel, rect, section } from './helpers';
 
 // 形狀內的物件跟著形狀一起移動（SPEC.md 第 3.3 節「形狀內的物件」）
 const box = (id: string, x: number, y: number, w: number, h: number, z: string, extra = {}) =>
@@ -150,5 +150,43 @@ describe('複製形狀時一起複製形狀內的物件', () => {
     const tops = model.paste(JSON.stringify(payload), { at: { x: 1000, y: 1000 } });
     expect(tops).toHaveLength(2);
     expect(model.selection.sort()).toEqual(tops.sort());
+  });
+});
+
+// 刪除形狀時，形狀內的物件一起刪除（DECISIONS.md 2026-10-13）
+describe('刪除形狀時一起刪除形狀內的物件', () => {
+  it('多層的形狀內物件與接在它們上面的連線都刪除，一個 transaction、一步復原', () => {
+    const { doc, model } = makeModel([
+      box('A', 0, 0, 400, 300, 'a0'),
+      box('D', 20, 20, 200, 150, 'a1'),
+      box('E', 40, 40, 40, 40, 'a2'),
+      { type: 'icon', id: 'I', x: 300, y: 200, w: 48, h: 48, z: 'a3', iconName: 'Star' },
+      box('Out', 600, 0, 50, 50, 'a4'),
+      { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, from: { objectId: 'I', anchor: 'right' }, to: { objectId: 'Out', anchor: 'left' } },
+    ]);
+    model.setSelection(['A']);
+    model.stopCapturing();
+    const before = model.undoManager.undoStack.length;
+    const tx = countTransactions(doc);
+    model.deleteIds(['A']);
+    tx.stop();
+    model.stopCapturing();
+    expect(tx.list).toHaveLength(1);
+    expect([...model.store.objects.keys()]).toEqual(['Out']);
+    expect(model.selection).toEqual([]);
+    expect(model.undoManager.undoStack.length).toBe(before + 1);
+    model.undo();
+    expect([...model.store.objects.keys()].sort()).toEqual(['A', 'D', 'E', 'I', 'Out', 'c']);
+  });
+
+  it('不在範圍內、畫在下方或鎖定的物件不刪除', () => {
+    const { model } = makeModel([
+      box('A', 0, 0, 300, 200, 'a1'),
+      box('Under', 20, 20, 60, 40, 'a0'),
+      box('Partial', 250, 150, 100, 100, 'a2'),
+      box('Locked', 100, 100, 40, 40, 'a3', { locked: true }),
+    ]);
+    model.deleteIds(['A']);
+    expect([...model.store.objects.keys()].sort()).toEqual(['Locked', 'Partial', 'Under']);
   });
 });

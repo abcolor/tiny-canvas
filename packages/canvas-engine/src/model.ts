@@ -872,12 +872,14 @@ export class EditorModel {
 
   /**
    * 刪除。區塊預設為 'with-contents'；'section-only' 時子物件改為頂層，位置不變。
+   * 形狀內一起移動的物件（carriedUnits）跟著形狀一併刪除。
    * 接在被刪物件上的連線一併刪除。鎖定的物件不刪。一個 transaction
    */
   deleteIds(ids = this.selection, sectionMode: SectionDeleteMode = 'with-contents') {
     if (this.readOnly) return;
-    const units = this.normalizeUnits(ids).filter((id) => !this.isLocked(id));
-    if (!units.length) return;
+    const picked = this.normalizeUnits(ids).filter((id) => !this.isLocked(id));
+    if (!picked.length) return;
+    const units = [...picked, ...this.carriedUnits(picked)];
     const doomed = new Set<string>();
     const release: { section: BoardObject; kids: BoardObject[] }[] = [];
     for (const u of units) {
