@@ -27,11 +27,14 @@ export function ArrangeMenuItems({
   editor,
   selected,
   hideDuplicate,
+  hideGroup,
 }: {
   editor: BoardEditor;
   selected: BoardObject[];
   /** 工具列上已有「複製」按鈕時，選單內不再重複顯示 */
   hideDuplicate?: boolean;
+  /** 工具列外層已有群組 / 解除群組按鈕時，選單內不再重複顯示 */
+  hideGroup?: boolean;
 }) {
   const a = strings.arrange;
   const many = selected.length > 1;
@@ -47,12 +50,12 @@ export function ArrangeMenuItems({
           {a.duplicate}
         </MenuItem>
       )}
-      {many ? (
+      {many && !hideGroup ? (
         <MenuItem icon={<Group className="h-4 w-4" />} shortcut="Mod+G" disabled={hasSection} onSelect={() => editor.group()}>
           {a.group}
         </MenuItem>
       ) : null}
-      {isGroup ? (
+      {isGroup && !hideGroup ? (
         <MenuItem icon={<Ungroup className="h-4 w-4" />} shortcut="Mod+Shift+G" onSelect={() => editor.ungroup()}>
           {a.ungroup}
         </MenuItem>

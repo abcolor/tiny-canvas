@@ -139,6 +139,7 @@ export function StyleBar({
       {multi ? (
         <>
           <AlignControls editor={editor} distribute={state.can.distribute} />
+          <GroupButtons editor={editor} selected={selected} />
           <CopyImageButton editor={editor} />
         </>
       ) : (
@@ -291,16 +292,7 @@ export function StyleBar({
           <IconButton label={strings.arrange.duplicate} onClick={() => editor.startPlacingDuplicate()}>
             <Copy className="h-4 w-4" />
           </IconButton>
-          {selected.length > 1 ? (
-            <IconButton label={strings.arrange.group} shortcut="Mod+G" disabled={types.has('section')} onClick={() => editor.group()}>
-              <Group className="h-4 w-4" />
-            </IconButton>
-          ) : null}
-          {selected.length === 1 && first.type === 'group' ? (
-            <IconButton label={strings.arrange.ungroup} shortcut="Mod+Shift+G" onClick={() => editor.ungroup()}>
-              <Ungroup className="h-4 w-4" />
-            </IconButton>
-          ) : null}
+          <GroupButtons editor={editor} selected={selected} />
         </>
       )}
       <Menu>
@@ -326,7 +318,7 @@ export function StyleBar({
             {s.pasteStyle}
           </MenuItem>
           <MenuSeparator />
-          <ArrangeMenuItems editor={editor} selected={selected} hideDuplicate={!multi} />
+          <ArrangeMenuItems editor={editor} selected={selected} hideDuplicate={!multi} hideGroup />
         </MenuContent>
       </Menu>
     </div>
@@ -567,6 +559,26 @@ function AlignControls({ editor, distribute }: { editor: BoardEditor; distribute
       <Divider />
     </>
   );
+}
+
+/** 群組 / 解除群組：多選時顯示群組，只選一個群組時顯示解除群組（含區塊時無法群組） */
+function GroupButtons({ editor, selected }: { editor: BoardEditor; selected: BoardObject[] }) {
+  const a = strings.arrange;
+  if (selected.length > 1) {
+    return (
+      <IconButton label={a.group} shortcut="Mod+G" disabled={selected.some((o) => o.type === 'section')} onClick={() => editor.group()}>
+        <Group className="h-4 w-4" />
+      </IconButton>
+    );
+  }
+  if (selected.length === 1 && selected[0].type === 'group') {
+    return (
+      <IconButton label={a.ungroup} shortcut="Mod+Shift+G" onClick={() => editor.ungroup()}>
+        <Ungroup className="h-4 w-4" />
+      </IconButton>
+    );
+  }
+  return null;
 }
 
 /** 把選取的物件畫成透明背景的 PNG 放進剪貼簿，可直接貼到其他文書軟體（沿用 SPEC.md 第 4.5 節的匯出） */
