@@ -359,6 +359,19 @@ export function manualPath(a: ResolvedEnd, b: ResolvedEnd, waypoints: Point[], m
   };
   const s = lead(a, firstVertical);
   const e = lead(b, lastVertical);
+  // 頭（尾）段直接接在端點上時至少 margin 長，且沿著離開方向；否則箭頭會畫在只有幾 px 的線段上，方向與看得到的線不一致。
+  // 太短或跑到端點另一側時，把相鄰的中間線段推到距離端點 margin 的位置（只影響繪製，waypoints 不變）
+  const keepOff = (e0: ResolvedEnd, vertical: boolean, i: number, j: number) => {
+    const axis = vertical ? 'y' : 'x';
+    const d = e0.dir ? axisDir(e0.dir)[axis] : 0;
+    const len = w[i][axis] - e0.p[axis];
+    let target: number | null = null;
+    if (d !== 0 && len * d < margin) target = e0.p[axis] + d * margin;
+    else if (d === 0 && len !== 0 && Math.abs(len) < margin) target = e0.p[axis] + Math.sign(len) * margin;
+    if (target !== null) w[i][axis] = w[j][axis] = target;
+  };
+  if (s === a.p) keepOff(a, firstVertical, 0, 1);
+  if (e === b.p) keepOff(b, lastVertical, n - 1, n - 2);
   if (firstVertical) w[0].x = s.x;
   else w[0].y = s.y;
   if (lastVertical) w[n - 1].x = e.x;

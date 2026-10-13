@@ -145,3 +145,44 @@ test('拖曳線段對齊後合併成較少的線段', async ({ page, context }) 
   // 剩下的路線沒有中間線段，控制點也跟著消失
   await expect.poll(async () => (await boardObjects(other)).find((o) => o.id === c)!.waypoints).toEqual([]);
 });
+
+// 線段拖到端點附近時，頭尾段保持至少 16 px，箭頭方向與接進來的線一致（DECISIONS.md 2026-10-13）
+test('中間線段拖到端點旁邊時箭頭方向正確', async ({ page }) => {
+  await createUserAndLogin(page, 'segmentnear');
+  await newBoard(page);
+  const c = await page.evaluate(() => {
+    const ed = (window as any).__tcEditor;
+    const a = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, w: 100, h: 60 }, { atViewportCenter: true });
+    const r = ed.getObjectScreenRect(a);
+    const w = ed.screenToWorld({ x: r.x, y: r.y });
+    const b = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: w.x + 240, y: w.y, w: 100, h: 60 });
+    const c = ed.insert({ type: 'connector', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: a, anchor: 'top' }, to: { objectId: b, anchor: 'top' } });
+    ed.select([c]);
+    return c as string;
+  });
+  const canvas = (await page.getByTestId('board-canvas').boundingBox())!;
+  const route = () =>
+    page.evaluate((id) => {
+      const ed = (window as any).__tcEditor;
+      const r = ed.model.routes.get(ed.model.store.get(id));
+      return { pts: r.points as { x: number; y: number }[], end: r.endTangent, start: r.startTangent };
+    }, c);
+  const before = await route();
+  const top = before.pts[0].y;
+  const mid = await page.evaluate((p) => (window as any).__tcEditor.worldToScreen(p), { x: (before.pts[1].x + before.pts[2].x) / 2, y: before.pts[1].y });
+  const target = await page.evaluate((p) => (window as any).__tcEditor.worldToScreen(p), { x: 0, y: top - 6 });
+
+  // 把水平線段往下拖到兩個形狀上緣上方 6 px
+  await page.mouse.move(canvas.x + mid.x, canvas.y + mid.y);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + mid.x, canvas.y + target.y, { steps: 6 });
+  await page.mouse.up();
+
+  const after = await route();
+  const n = after.pts.length;
+  // 頭尾段都是從上方往下 16 px 接到上緣，箭頭朝下
+  expect(after.pts[n - 2].y).toBeCloseTo(top - 16, 6);
+  expect(after.pts[1].y).toBeCloseTo(top - 16, 6);
+  expect(after.end).toEqual({ x: 0, y: 1 });
+  expect(after.start).toEqual({ x: 0, y: 1 });
+});
