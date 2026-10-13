@@ -1809,6 +1809,19 @@ export class BoardEditor {
     on('copy', (e) => this.onCopy(e, false));
     on('cut', (e) => this.onCopy(e, true));
     on('paste', (e) => this.onPaste(e));
+    // 點過浮動工具列、左側工具列或選單後，焦點停在那些按鈕上，剪貼簿事件不會經過畫布；
+    // 在 document 上補聽，焦點不在可輸入的地方時一樣交給畫布處理
+    const doc = el.ownerDocument;
+    const onDoc = (type: 'copy' | 'cut' | 'paste', fn: (e: ClipboardEvent) => void) => {
+      const h = (e: ClipboardEvent) => {
+        if (this.clipboardFromOutside(e)) fn(e);
+      };
+      doc.addEventListener(type, h);
+      this.cleanup.push(() => doc.removeEventListener(type, h));
+    };
+    onDoc('copy', (e) => this.onCopy(e, false));
+    onDoc('cut', (e) => this.onCopy(e, true));
+    onDoc('paste', (e) => this.onPaste(e));
     on('dragover', (e) => {
       if (!this.readOnly && e.dataTransfer?.types.includes('Files')) e.preventDefault();
     });
@@ -2832,6 +2845,23 @@ export class BoardEditor {
     }
     this.contextMenu = cellKey ? { screen, targetId, cellKey } : { screen, targetId };
     this.markState();
+  }
+
+  /**
+   * document 上的剪貼簿事件是否該由畫布處理：來自畫布本身的已經處理過；
+   * 焦點在輸入框、可編輯文字或對話框內，或使用者選取了頁面文字時，維持瀏覽器原本的行為
+   */
+  private clipboardFromOutside(e: ClipboardEvent): boolean {
+    if (e.defaultPrevented) return false;
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && this.renderer.root.contains(t)) return false;
+    if (t?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="dialog"]')) return false;
+    if (t instanceof HTMLElement && t.isContentEditable) return false;
+    if (e.type !== 'paste') {
+      const sel = t?.ownerDocument.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return false;
+    }
+    return true;
   }
 
   private onCopy(e: ClipboardEvent, cut: boolean) {
