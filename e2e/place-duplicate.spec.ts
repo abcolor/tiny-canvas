@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boardObjects, createUserAndLogin, MOD, newBoard } from './helpers';
+import { boardObjects, createUserAndLogin, MOD, newBoard, waitForEditor } from './helpers';
 
 // 「複製一份」：副本跟著游標（左上角對齊游標），點按左鍵放置；Esc 取消
 test('點按「複製一份」後在指定位置放置副本', async ({ page }) => {
@@ -80,4 +80,54 @@ test('放置中對齊附近物件的邊（智慧參考線）', async ({ page }) 
   await page.mouse.up();
   const copy = (await boardObjects(page)).find((x) => x.id !== orig)!;
   expect(copy.x).toBeCloseTo(o.x, 6);
+});
+
+// 複製形狀時，形狀內的物件一起複製（DECISIONS.md 2026-10-13）
+test('「複製一份」與 Mod+D 一起複製形狀內的物件，另一個分頁一致', async ({ page, context }) => {
+  await createUserAndLogin(page, 'placeinner');
+  const fileId = await newBoard(page);
+  const other = await context.newPage();
+  await other.goto(`/b/${fileId}`);
+  await waitForEditor(other);
+  const ids = await page.evaluate(() => {
+    const ed = (window as any).__tcEditor;
+    const a = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, w: 240, h: 160 }, { atViewportCenter: true });
+    const o = ed.doc.getMap('objects').get(a);
+    const icon = ed.insert({ type: 'icon', iconName: 'Star', x: o.get('x') + 20, y: o.get('y') + 20, w: 32, h: 32 });
+    const inner = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: o.get('x') + 100, y: o.get('y') + 60, w: 80, h: 50, text: '內部' });
+    ed.select([a]);
+    return { a, icon, inner };
+  });
+  const bar = page.getByRole('toolbar', { name: '樣式工具列' });
+  const canvas = (await page.getByTestId('board-canvas').boundingBox())!;
+
+  await bar.getByRole('button', { name: '複製一份' }).click();
+  await page.mouse.move(canvas.x + 120, canvas.y + 480, { steps: 4 });
+  await page.mouse.down();
+  await page.mouse.up();
+
+  const objs = await boardObjects(page);
+  expect(objs.length).toBe(6);
+  const copy = objs.find((o) => o.type === 'shape' && o.w === 240 && o.id !== ids.a)!;
+  const src = objs.find((o) => o.id === ids.a)!;
+  const dx = copy.x - src.x;
+  const dy = copy.y - src.y;
+  // 形狀內物件的複本相對位置不變
+  for (const id of [ids.icon, ids.inner]) {
+    const orig = objs.find((o) => o.id === id)!;
+    const dup = objs.find((o) => o.id !== id && o.type === orig.type && o.w === orig.w && Math.abs(o.x - (orig.x + dx)) < 1e-6 && Math.abs(o.y - (orig.y + dy)) < 1e-6);
+    expect(dup).toBeTruthy();
+  }
+  expect(objs.filter((o) => typeof o.text === 'string' && o.text.includes('內部')).length).toBe(2);
+  // 只選取形狀的複本
+  expect(await page.evaluate(() => (window as any).__tcEditor.getState().selection)).toEqual([copy.id]);
+  await expect.poll(async () => (await boardObjects(other)).length).toBe(6);
+
+  // Mod+D 同樣一起複製；一次復原全部移除
+  await page.evaluate((id) => (window as any).__tcEditor.select([id]), ids.a);
+  await page.keyboard.press(`${MOD}+d`);
+  await expect.poll(async () => (await boardObjects(page)).length).toBe(9);
+  await page.keyboard.press(`${MOD}+z`);
+  await expect.poll(async () => (await boardObjects(page)).length).toBe(6);
+  await expect.poll(async () => (await boardObjects(other)).length).toBe(6);
 });

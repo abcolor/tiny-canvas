@@ -1331,10 +1331,18 @@ export class EditorModel {
     return this.store.sortByOrder(Array.from(set));
   }
 
+  /** 序列化選取，形狀內一起移動的物件（carriedUnits）也一併帶上，複本才會保留形狀裡的內容 */
   serialize(ids = this.selection): string | null {
     const units = this.normalizeUnits(ids);
     if (!units.length) return null;
-    const ordered = this.copySet(units);
+    const carried = this.carriedUnits(units);
+    const ordered = this.copySet([...units, ...carried]);
+    // 兩端都在形狀內物件上的連線也屬於「一起帶上」的內容，貼上後同樣不選取
+    const inside = new Set(carried.flatMap((u) => [u, ...this.store.descendants(u)]));
+    for (const id of ordered) {
+      const o = this.store.get(id);
+      if (o?.type === 'connector' && o.from.objectId && o.to.objectId && inside.has(o.from.objectId) && inside.has(o.to.objectId)) carried.push(id);
+    }
     const set = new Set(ordered);
     const objects: Record<string, SerializedValue>[] = [];
     for (const id of ordered) {
@@ -1352,13 +1360,14 @@ export class EditorModel {
       objects.push(s);
     }
     const bounds = this.selectionBounds(units) ?? { x: 0, y: 0, w: 0, h: 0 };
-    const payload: ClipboardPayload = { kind: CLIPBOARD_MARKER, sourceDoc: String(this.doc.guid), objects, bounds };
+    const payload: ClipboardPayload = { kind: CLIPBOARD_MARKER, sourceDoc: String(this.doc.guid), objects, bounds, ...(carried.length ? { carried } : {}) };
     return JSON.stringify(payload);
   }
 
   /**
    * 貼上：所有物件取得新 id，parentId 與連線端點重新對應；不在剪貼簿內的容器改為頂層（再依中心點判定區塊）。
-   * at：貼上後外接框的中心；省略時貼在原處並依連續貼上次數位移 16px。回傳新的頂層 id
+   * at：貼上後外接框的中心；省略時貼在原處並依連續貼上次數位移 16px。
+   * 回傳並選取新的頂層 id（一起帶上的形狀內物件除外）
    */
   paste(data: string, opts: { at?: Point; offset?: number; delta?: Point } = {}): string[] {
     if (this.readOnly) return [];
@@ -1446,8 +1455,10 @@ export class EditorModel {
     } finally {
       this.pasting = false;
     }
-    this.setSelection(tops);
-    return tops;
+    const carried = new Set((payload.carried ?? []).map((id) => idMap.get(String(id))));
+    const result = tops.filter((id) => !carried.has(id));
+    this.setSelection(result);
+    return result;
   }
 
   // ------------------------------------------------------------------ 放置複本（startPlacingDuplicate）

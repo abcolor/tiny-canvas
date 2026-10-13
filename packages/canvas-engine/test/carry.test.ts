@@ -87,3 +87,68 @@ describe('形狀內的物件跟著形狀移動', () => {
     expect(model.store.get('B')!.x).toBe(120);
   });
 });
+
+// 複製形狀時，形狀內的物件一起複製（DECISIONS.md 2026-10-13）
+describe('複製形狀時一起複製形狀內的物件', () => {
+  const board = () =>
+    makeModel([
+      box('A', 0, 0, 400, 300, 'a0'),
+      box('D', 20, 20, 200, 150, 'a1'),
+      box('E', 40, 40, 40, 40, 'a2'),
+      { type: 'icon', id: 'I', x: 300, y: 200, w: 48, h: 48, z: 'a3', iconName: 'Star' },
+      box('Out', 600, 0, 50, 50, 'a4'),
+      { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, from: { objectId: 'D', anchor: 'right' }, to: { objectId: 'I', anchor: 'left' } },
+    ]);
+
+  it('Mod+D：多層的形狀內物件與它們之間的連線都複製，只選取形狀的複本，一步復原', () => {
+    const { model } = board();
+    model.setSelection(['A']);
+    model.stopCapturing();
+    const before = model.store.objects.size;
+    const tops = model.duplicate();
+    model.stopCapturing();
+    // A、D、E、I、連線 c 各一份；外面的 Out 不複製
+    expect(model.store.objects.size).toBe(before + 5);
+    expect(tops).toHaveLength(1);
+    expect(model.selection).toEqual(tops);
+    const copy = model.store.get(tops[0])!;
+    expect(copy).toMatchObject({ type: 'shape', x: 16, y: 16, w: 400, h: 300 });
+    // 複本的形狀內物件仍在複本範圍內、畫在上方，之後移動複本時會一起帶走
+    expect(model.carriedUnits(tops)).toHaveLength(3);
+    const conn = [...model.store.objects.values()].find((o) => o.type === 'connector' && o.id !== 'c') as any;
+    expect(conn.from.objectId).not.toBe('D');
+    expect(conn.to.objectId).not.toBe('I');
+    model.undo();
+    expect(model.store.objects.size).toBe(before);
+    expect([...model.store.objects.keys()].sort()).toEqual(['A', 'D', 'E', 'I', 'Out', 'c']);
+  });
+
+  it('複製到剪貼簿再貼上：形狀內物件一起貼上，只選取形狀的複本', () => {
+    const { model } = board();
+    const data = model.serialize(['A'])!;
+    const payload = JSON.parse(data);
+    expect(payload.carried.sort()).toEqual(['D', 'E', 'I', 'c']);
+    expect(payload.objects.map((o: any) => o.id).sort()).toEqual(['A', 'D', 'E', 'I', 'c']);
+    const tops = model.paste(data, { at: { x: 1000, y: 1000 } });
+    expect(tops).toHaveLength(1);
+    expect(model.selection).toEqual(tops);
+    expect(model.carriedUnits(tops)).toHaveLength(3);
+  });
+
+  it('放置複本的預覽也包含形狀內物件', () => {
+    const { model } = board();
+    model.setSelection(['A']);
+    const p = model.preparePlacement()!;
+    expect(p.objects.map((o) => o.id).sort()).toEqual(['A', 'D', 'E', 'I', 'c']);
+    expect(p.bounds).toEqual({ x: 0, y: 0, w: 400, h: 300 });
+  });
+
+  it('沒有形狀內物件時，剪貼簿不寫入 carried，貼上後照舊選取全部頂層（含兩端都在複製範圍內的連線）', () => {
+    const { model } = board();
+    const payload = JSON.parse(model.serialize(['Out', 'I'])!);
+    expect(payload.carried).toBeUndefined();
+    const tops = model.paste(JSON.stringify(payload), { at: { x: 1000, y: 1000 } });
+    expect(tops).toHaveLength(2);
+    expect(model.selection.sort()).toEqual(tops.sort());
+  });
+});

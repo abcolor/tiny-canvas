@@ -28,6 +28,8 @@ export interface ClipboardPayload {
   objects: Record<string, SerializedValue>[];
   /** 複製時選取範圍的外接框（貼上定位用） */
   bounds: { x: number; y: number; w: number; h: number };
+  /** 一起帶上的形狀內物件（carriedUnits）；貼上後不選取它們的複本 */
+  carried?: string[];
 }
 
 function serializeXml(node: Y.XmlElement | Y.XmlText): SerializedXml {
