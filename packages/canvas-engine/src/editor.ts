@@ -2263,12 +2263,16 @@ export class BoardEditor {
     else if (sy) outDy = dy + sy.d;
     else outDy = snap(b.y + dy, GRID_SIZE) - b.y;
     const fin = { x: b.x + outDx, y: b.y + outDy, w: b.w, h: b.h };
-    if (bestX) guides.push({ axis: 'x', pos: bestX.pos, from: Math.min(fin.y, bestX.ref.y), to: Math.max(fin.y + fin.h, bestX.ref.y + bestX.ref.h) });
+    // 吸附後，左 / 中 / 右（上 / 中 / 下）每一條與其他物件重合的線都畫參考線，不只吸附的那一條
+    const aligned = alignGuides(fin, { xs: [fin.x, fin.x + fin.w / 2, fin.x + fin.w], ys: [fin.y, fin.y + fin.h / 2, fin.y + fin.h] }, others);
+    const alignedX = aligned.filter((gd) => gd.axis === 'x');
+    const alignedY = aligned.filter((gd) => gd.axis === 'y');
+    if (alignedX.length) guides.push(...alignedX);
     else if (sx) {
       const cy = fin.y + fin.h / 2;
       guides.push({ axis: 'y', pos: cy, from: sx.lEnd, to: fin.x }, { axis: 'y', pos: cy, from: fin.x + fin.w, to: sx.rStart });
     }
-    if (bestY) guides.push({ axis: 'y', pos: bestY.pos, from: Math.min(fin.x, bestY.ref.x), to: Math.max(fin.x + fin.w, bestY.ref.x + bestY.ref.w) });
+    if (alignedY.length) guides.push(...alignedY);
     else if (sy) {
       const cx = fin.x + fin.w / 2;
       guides.push({ axis: 'x', pos: cx, from: sy.lEnd, to: fin.y }, { axis: 'x', pos: cx, from: fin.y + fin.h, to: sy.rStart });

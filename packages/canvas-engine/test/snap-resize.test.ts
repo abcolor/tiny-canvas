@@ -40,6 +40,19 @@ describe('縮放後的參考線（alignGuides）', () => {
     expect(alignGuides(r, { xs: [200], ys: [] }, [ref, other])).toEqual([{ axis: 'x', pos: 200, from: 100, to: 550 }]);
   });
 
+  it('移動時多條線同時對齊：左、中、右與上邊都畫出來', () => {
+    // 與 ref 同寬、正下方，且上邊對齊另一個物件的下邊
+    const r = { x: 200, y: 300, w: 100, h: 40 };
+    const shelf = { x: 500, y: 250, w: 50, h: 50 };
+    const lines = { xs: [200, 250, 300], ys: [300, 320, 340] };
+    expect(alignGuides(r, lines, [ref, shelf])).toEqual([
+      { axis: 'x', pos: 200, from: 100, to: 340 },
+      { axis: 'x', pos: 250, from: 100, to: 340 },
+      { axis: 'x', pos: 300, from: 100, to: 340 },
+      { axis: 'y', pos: 300, from: 200, to: 550 },
+    ]);
+  });
+
   it('沒有重合的線不畫；只檢查指定的線', () => {
     const r = { x: 200, y: 300, w: 77, h: 50 };
     // 左邊 200 與 ref 對齊，但沒有指定（左邊沒有移動），所以不畫
