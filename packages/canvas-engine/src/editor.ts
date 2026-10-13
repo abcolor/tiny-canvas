@@ -1238,6 +1238,33 @@ export class BoardEditor {
     this.renderer.invalidateLive();
   }
 
+  /**
+   * 縮放、旋轉時，畫在 units 上方、且與 units 目前或原本範圍重疊的物件也抬到即時圖層。
+   * 即時圖層畫在畫布快取上方，否則形狀內的物件（或其他疊在上面的物件）會被縮放中的形狀蓋住，放開後才出現
+   */
+  private liftCovering(units: string[]) {
+    const s = this.model.store;
+    const hidden = this.renderer.hidden;
+    let lowest = Infinity;
+    const rects: Rect[] = [];
+    for (const u of units) {
+      for (const id of [u, ...s.descendants(u)]) {
+        lowest = Math.min(lowest, s.orderOf(id));
+        const b = s.boundsOf(id);
+        if (b) rects.push(b);
+        const o = this.overrides.get(id);
+        if (o && o.type !== 'connector') rects.push(rotatedAabb(o));
+      }
+    }
+    const area = unionRects(rects);
+    if (!area) return;
+    const extra: string[] = [];
+    for (const it of s.query(area)) {
+      if (!hidden.has(it.id) && s.orderOf(it.id) > lowest) extra.push(it.id);
+    }
+    if (extra.length) this.lift(extra);
+  }
+
   private unlift() {
     if (!this.renderer.hidden.size && !this.overrides.size) return;
     const s = this.model.store;
@@ -2108,6 +2135,7 @@ export class BoardEditor {
         }
         g.delta = delta;
         this.setOverrides(this.model.planRotate(g.units, delta, g.units.length === 1 && this.model.store.get(g.units[0])?.type !== 'group' ? undefined : g.center));
+        this.liftCovering(g.units);
         return;
       }
       case 'create':
@@ -2371,6 +2399,7 @@ export class BoardEditor {
       g.plan = m.planResize(g.units, b, to);
     }
     this.setOverrides(g.plan);
+    this.liftCovering(g.units);
   }
 
   private onPointerUp(e: PointerEvent) {
