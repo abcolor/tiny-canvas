@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { localOrigin } from '@tinycanvas/shared';
 import { connectorRegion } from '../src/connectors/ends';
-import { alignSegment } from '../src/connectors/route';
+import { alignSegment, moveShortEndJogs } from '../src/connectors/route';
 import { countTransactions, makeModel, raw, rect } from './helpers';
 
 // 折線中間線段拖曳後的手動路線（DECISIONS.md 2026-10-12）
@@ -256,6 +256,82 @@ describe('手動路線的頭尾段至少 ROUTE_MARGIN 長', () => {
         for (const dy of [-120, -60, -10, -3, 0, 3, 10, 60]) {
           model.updateObject('b', { x: 300 + dx, y: 100 + dy });
           expect(badEnds(points(model as any)), JSON.stringify({ anchor, dx, dy })).toBe(false);
+        }
+      }
+    }
+  });
+});
+
+// 兩個物件幾乎等高時，自動路由在端點前留下極短的垂直段，箭頭轉 90 度（DECISIONS.md 2026-10-14）
+describe('自動路由的頭尾小轉折移到內側（moveShortEndJogs）', () => {
+  type P = { x: number; y: number };
+  const end = (p: P, dir: P | null) => ({ p, dir, obj: null }) as any;
+
+  it('只有一個轉角：改在整段的中點轉折', () => {
+    const pts = moveShortEndJogs([{ x: 160, y: 30 }, { x: 120, y: 30 }, { x: 120, y: 30.3 }], end({ x: 160, y: 30 }, { x: -1, y: 0 }), end({ x: 120, y: 30.3 }, { x: 1, y: 0 }));
+    expect(pts).toEqual([
+      { x: 160, y: 30 },
+      { x: 140, y: 30 },
+      { x: 140, y: 30.3 },
+      { x: 120, y: 30.3 },
+    ]);
+  });
+
+  it('前面還有轉折點：平移前一段線對齊端點，最後一段直接水平接進去', () => {
+    const pts = moveShortEndJogs(
+      [{ x: 300, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 30 }, { x: 120, y: 30 }, { x: 120, y: 34 }],
+      end({ x: 300, y: 100 }, { x: -1, y: 0 }),
+      end({ x: 120, y: 34 }, { x: 1, y: 0 }),
+    );
+    expect(pts).toEqual([
+      { x: 300, y: 100 },
+      { x: 200, y: 100 },
+      { x: 200, y: 34 },
+      { x: 120, y: 34 },
+    ]);
+  });
+
+  it('最後一段與端點離開方向平行（刻意的離開短線）時不處理', () => {
+    const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 10 }];
+    expect(moveShortEndJogs(pts, end({ x: 0, y: 0 }, null), end({ x: 100, y: 10 }, { x: 0, y: -1 }))).toEqual(pts);
+  });
+
+  it('水平置中的矩形與圓形：接在矩形右邊、與圓形差 0.3 px 時，箭頭仍朝左', () => {
+    const { model } = makeModel([
+      rect('a', 0, 0, { w: 120, h: 60 }),
+      { type: 'shape', id: 'b', shapeKind: 'ellipse', x: 200, y: 0, w: 60, h: 60, z: 'a1' } as any,
+      { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: 'b', anchor: 'left' }, to: { objectId: 'a', anchor: { u: 1, v: 0.505 } } } as any,
+    ]);
+    const r = model.routes.get(model.store.get('c') as any);
+    expect(r.endTangent).toEqual({ x: -1, y: 0 });
+    const n = r.points.length;
+    expect(r.points[n - 1].x - r.points[n - 2].x).toBeLessThanOrEqual(-16);
+  });
+
+  it('掃描：水平置中時，連接點在矩形右邊任何位置，頭尾段都不會短於箭頭', () => {
+    type Pt = { x: number; y: number };
+    const tooShort = (pts: Pt[]) => {
+      const n = pts.length;
+      if (n < 3) return false;
+      const seg = (a: Pt, b: Pt) => ({ dx: b.x - a.x, dy: b.y - a.y, len: Math.hypot(b.x - a.x, b.y - a.y) });
+      const bad = (s1: ReturnType<typeof seg>, s2: ReturnType<typeof seg>) => s1.len < 15 && s2.len >= 3 && Math.abs(s1.dx * s2.dx + s1.dy * s2.dy) < 1e-6;
+      return bad(seg(pts[n - 2], pts[n - 1]), seg(pts[n - 3], pts[n - 2])) || bad(seg(pts[1], pts[0]), seg(pts[2], pts[1]));
+    };
+    for (const h of [60, 160]) {
+      for (const gap of [40, 160]) {
+        for (const rev of [false, true]) {
+          for (let v = 0; v <= 1.0001; v += 0.005) {
+            for (const cA of [null, 'left', { u: 0, v: 0.47 }]) {
+              const rectEnd = { objectId: 'a', anchor: { u: 1, v: +v.toFixed(3) } };
+              const circEnd = { objectId: 'b', anchor: cA };
+              const { model } = makeModel([
+                rect('a', 0, 0, { w: 120, h }),
+                { type: 'shape', id: 'b', shapeKind: 'ellipse', x: 120 + gap, y: h / 2 - 30, w: 60, h: 60, z: 'a1' } as any,
+                { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: rev ? rectEnd : circEnd, to: rev ? circEnd : rectEnd } as any,
+              ]);
+              expect(tooShort(points(model as any)), JSON.stringify({ h, gap, rev, v, cA })).toBe(false);
+            }
+          }
         }
       }
     }

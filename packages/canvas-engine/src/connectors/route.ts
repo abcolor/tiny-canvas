@@ -414,6 +414,47 @@ export function manualPath(a: ResolvedEnd, b: ResolvedEnd, waypoints: Point[], m
   return simplify(fixOrtho(pts));
 }
 
+/**
+ * 頭（尾）段太短、且方向與端點離開物件的方向不一致時（例如兩個物件幾乎等高，自動路由在端點前留下 0.3 px 的垂直小段），
+ * 箭頭會依這段極短線段的方向畫，看起來轉了 90 度。把這個小轉折往路線內側移：
+ * 前面還有轉折點時，平移前一段線對齊端點；只有一個轉角時，改在整段的中點轉折
+ */
+export function moveShortEndJogs(pts: Point[], a: ResolvedEnd, b: ResolvedEnd, min = ROUTE_MARGIN): Point[] {
+  let out = pts.map((p) => ({ ...p }));
+  const fixEnd = (q: Point[], e: ResolvedEnd): Point[] => {
+    const n = q.length;
+    if (n < 3) return q;
+    const end = q[n - 1];
+    const corner = q[n - 2];
+    const prev = q[n - 3];
+    const vertical = Math.abs(corner.x - end.x) < 1e-9;
+    const len = vertical ? Math.abs(end.y - corner.y) : Math.abs(end.x - corner.x);
+    if (len === 0 || len >= min) return q;
+    // 前一段必須與最後一段垂直（才是「轉角後的小段」）
+    const prevVertical = Math.abs(prev.x - corner.x) < 1e-9;
+    if (prevVertical === vertical) return q;
+    // 端點離開方向與最後一段平行時，這段是刻意的離開短線，不處理
+    if (e.dir) {
+      const d = axisDir(e.dir);
+      if ((d.y !== 0) === vertical) return q;
+    }
+    const axis = vertical ? 'y' : 'x';
+    if (n >= 4) {
+      const r = q.slice();
+      r[n - 2] = { ...corner, [axis]: end[axis] };
+      r[n - 3] = { ...prev, [axis]: end[axis] };
+      return r;
+    }
+    // [起點, 轉角, 終點]：改成在中點轉折
+    const cross = axis === 'y' ? 'x' : 'y';
+    const mid = (prev[cross] + end[cross]) / 2;
+    return [prev, { ...prev, [cross]: mid }, { ...end, [cross]: mid }, end] as Point[];
+  };
+  out = fixEnd(out, b);
+  out = fixEnd(out.slice().reverse(), a).reverse();
+  return simplify(out);
+}
+
 // ---------------------------------------------------------------- 公開入口
 
 function collectObstacles(c: ConnectorObject, a: ResolvedEnd, b: ResolvedEnd, region: Rect, ctx: RouteContext): Rect[] {
@@ -498,6 +539,7 @@ export function computeRoute(c: ConnectorObject, ctx: RouteContext): Route {
     pts = simplify([a.p, ...mid, b.p]);
   }
   if (pts.length < 2) pts = [a.p, b.p];
+  if (c.routing === 'orthogonal') pts = moveShortEndJogs(pts, a, b);
   const n = pts.length;
   return {
     points: pts,
