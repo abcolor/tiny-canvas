@@ -104,6 +104,8 @@ export interface AlignGuide {
   pos: number;
   from: number;
   to: number;
+  /** 等距提示：畫在兩個物件之間的間距上，兩端加短橫槓 */
+  gap?: boolean;
 }
 
 /**
@@ -120,6 +122,111 @@ export function alignGuides(r: Rect, lines: { xs: number[]; ys: number[] }, refs
       const cross = (q: Rect) => (axis === 'x' ? [q.y, q.y + q.h] : [q.x, q.x + q.w]);
       const ends = [r, ...hits].flatMap(cross);
       out.push({ axis, pos, from: Math.min(...ends), to: Math.max(...ends) });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- 等距（移動時的間距提示）
+
+const lo = (r: Rect, axis: 'x' | 'y') => (axis === 'x' ? r.x : r.y);
+const hi = (r: Rect, axis: 'x' | 'y') => (axis === 'x' ? r.x + r.w : r.y + r.h);
+/** 兩個物件在另一軸上的範圍有重疊（才算同一排 / 同一列的鄰居） */
+const crossOverlap = (a: Rect, b: Rect, axis: 'x' | 'y') => {
+  const c = axis === 'x' ? 'y' : 'x';
+  return lo(a, c) < hi(b, c) && lo(b, c) < hi(a, c);
+};
+
+/** axis 方向上，r 前面（before）或後面（after）最近、且另一軸範圍重疊的物件 */
+function neighbor(r: Rect, refs: Rect[], axis: 'x' | 'y', side: 'before' | 'after'): Rect | null {
+  let best: Rect | null = null;
+  for (const q of refs) {
+    if (q === r || !crossOverlap(r, q, axis)) continue;
+    if (side === 'before' ? hi(q, axis) <= lo(r, axis) + 0.5 && (!best || hi(q, axis) > hi(best, axis)) : lo(q, axis) >= hi(r, axis) - 0.5 && (!best || lo(q, axis) < lo(best, axis))) best = q;
+  }
+  return best;
+}
+
+/**
+ * 移動時的等距吸附（axis 方向）：
+ * - 與前一個鄰居的間距，等於前一個鄰居與再前一個物件的間距（連續等距，後面同理）
+ * - 位在前後兩個鄰居的正中間
+ * 回傳 tol 以內最近的位移量，沒有則回傳 null
+ */
+export function equalSpacingSnap(r: Rect, refs: Rect[], axis: 'x' | 'y', tol: number): number | null {
+  const size = hi(r, axis) - lo(r, axis);
+  const cands: number[] = [];
+  const a = neighbor(r, refs, axis, 'before');
+  const c = neighbor(r, refs, axis, 'after');
+  if (a) {
+    const b = neighbor(a, refs, axis, 'before');
+    const g = b ? lo(a, axis) - hi(b, axis) : 0;
+    if (b && g > 0) cands.push(hi(a, axis) + g - lo(r, axis));
+  }
+  if (c) {
+    const d = neighbor(c, refs, axis, 'after');
+    const g = d ? lo(d, axis) - hi(c, axis) : 0;
+    if (d && g > 0) cands.push(lo(c, axis) - g - hi(r, axis));
+  }
+  if (a && c && lo(c, axis) - hi(a, axis) >= size) cands.push((hi(a, axis) + lo(c, axis) - size) / 2 - lo(r, axis));
+  let best: number | null = null;
+  for (const d of cands) if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+  return best;
+}
+
+/**
+ * 等距提示線：r 與前（後）鄰居的間距，和鄰居與再前（後）一個物件的間距相等時，標出這一串相等的間距；
+ * r 位在前後鄰居正中間時，標出兩邊的間距。每個間距畫在兩個物件另一軸重疊範圍的中央
+ */
+export function spacingGuides(r: Rect, refs: Rect[]): AlignGuide[] {
+  const out: AlignGuide[] = [];
+  const eps = 1e-6;
+  const seen = new Set<string>();
+  for (const axis of ['x', 'y'] as const) {
+    const c = axis === 'x' ? 'y' : 'x';
+    const mark = (p: Rect, q: Rect) => {
+      const key = `${axis}:${hi(p, axis)}:${lo(q, axis)}:${lo(p, c)}:${lo(q, c)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const pos = (Math.max(lo(p, c), lo(q, c)) + Math.min(hi(p, c), hi(q, c))) / 2;
+      // 沿 axis 方向的間距 → 畫成與 axis 平行的線；AlignGuide.axis 是「線的位置所在的軸」
+      out.push({ axis: c, pos, from: hi(p, axis), to: lo(q, axis), gap: true });
+    };
+    const before = neighbor(r, refs, axis, 'before');
+    const after = neighbor(r, refs, axis, 'after');
+    const gapBefore = before ? lo(r, axis) - hi(before, axis) : -1;
+    const gapAfter = after ? lo(after, axis) - hi(r, axis) : -1;
+    // 連續等距：往前（往後）沿著鄰居一路找相同的間距
+    const chain = (start: Rect, g: number, side: 'before' | 'after') => {
+      const pairs: [Rect, Rect][] = [];
+      let p = start;
+      for (let i = 0; i < 32; i++) {
+        const q = neighbor(p, refs, axis, side);
+        if (!q) break;
+        const gq = side === 'before' ? lo(p, axis) - hi(q, axis) : lo(q, axis) - hi(p, axis);
+        if (Math.abs(gq - g) > eps) break;
+        pairs.push(side === 'before' ? [q, p] : [p, q]);
+        p = q;
+      }
+      return pairs;
+    };
+    if (before && gapBefore > eps) {
+      const pairs = chain(before, gapBefore, 'before');
+      if (pairs.length) {
+        mark(before, r);
+        for (const [p, q] of pairs) mark(p, q);
+      }
+    }
+    if (after && gapAfter > eps) {
+      const pairs = chain(after, gapAfter, 'after');
+      if (pairs.length) {
+        mark(r, after);
+        for (const [p, q] of pairs) mark(p, q);
+      }
+    }
+    if (before && after && gapBefore > eps && Math.abs(gapBefore - gapAfter) < eps) {
+      mark(before, r);
+      mark(r, after);
     }
   }
   return out;

@@ -24,6 +24,7 @@ import { Renderer, type Camera } from './renderer';
 import {
   alignGuides,
   clamp,
+  equalSpacingSnap,
   containsPoint,
   dist,
   distToSegment,
@@ -36,8 +37,10 @@ import {
   rotatedAabb,
   snap,
   snapAngle,
+  spacingGuides,
   toLocal,
   unionRects,
+  type AlignGuide,
   type Rect,
 } from './geometry';
 import {
@@ -98,6 +101,8 @@ const DRAG_GESTURES = new Set(['move', 'resize', 'rotate', 'connect', 'endpoint'
 const SIDES: AnchorSide[] = ['top', 'right', 'bottom', 'left'];
 const SNAP_PX = 6;
 const GUIDE_COLOR = '#e5487a';
+/** 等距提示兩端短橫槓的半長（螢幕像素） */
+const GAP_CAP = 4;
 
 /** 指標附近物件外框上的連接點（p 為畫布座標） */
 type EdgeDot = { id: string; anchor: Anchor; p: Point };
@@ -110,12 +115,7 @@ type Handle =
   /** 折線中間線段的控制點：index 為線段在路線上的序號（第 index 點到第 index + 1 點） */
   | { kind: 'segment'; p: Point; index: number; horizontal: boolean };
 
-interface Guide {
-  axis: 'x' | 'y';
-  pos: number;
-  from: number;
-  to: number;
-}
+type Guide = AlignGuide;
 
 type Gesture =
   | { kind: 'none' }
@@ -1593,16 +1593,32 @@ export class BoardEditor {
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (const gd of guides) {
+        // 等距提示兩端加短橫槓，與對齊線區分
+        const cap = gd.gap ? GAP_CAP : 0;
         if (gd.axis === 'x') {
           const a = this.worldToScreen({ x: gd.pos, y: gd.from });
           const b = this.worldToScreen({ x: gd.pos, y: gd.to });
-          ctx.moveTo(Math.round(a.x) + 0.5, a.y);
-          ctx.lineTo(Math.round(b.x) + 0.5, b.y);
+          const x = Math.round(a.x) + 0.5;
+          ctx.moveTo(x, a.y);
+          ctx.lineTo(x, b.y);
+          if (cap) {
+            for (const y of [a.y, b.y]) {
+              ctx.moveTo(x - cap, Math.round(y) + 0.5);
+              ctx.lineTo(x + cap, Math.round(y) + 0.5);
+            }
+          }
         } else {
           const a = this.worldToScreen({ x: gd.from, y: gd.pos });
           const b = this.worldToScreen({ x: gd.to, y: gd.pos });
-          ctx.moveTo(a.x, Math.round(a.y) + 0.5);
-          ctx.lineTo(b.x, Math.round(b.y) + 0.5);
+          const y = Math.round(a.y) + 0.5;
+          ctx.moveTo(a.x, y);
+          ctx.lineTo(b.x, y);
+          if (cap) {
+            for (const x of [a.x, b.x]) {
+              ctx.moveTo(Math.round(x) + 0.5, y - cap);
+              ctx.lineTo(Math.round(x) + 0.5, y + cap);
+            }
+          }
         }
       }
       ctx.stroke();
@@ -2286,56 +2302,20 @@ export class BoardEditor {
         }
       }
     }
-    // 等距：左右（上下）最近鄰居之間置中
-    const spacing = (axis: 'x' | 'y') => {
-      const lo = axis === 'x' ? moved.x : moved.y;
-      const size = axis === 'x' ? moved.w : moved.h;
-      const crossLo = axis === 'x' ? moved.y : moved.x;
-      const crossHi = crossLo + (axis === 'x' ? moved.h : moved.w);
-      let left: Rect | null = null;
-      let right: Rect | null = null;
-      for (const r of others) {
-        const rLo = axis === 'x' ? r.y : r.x;
-        const rHi = rLo + (axis === 'x' ? r.h : r.w);
-        if (rHi < crossLo || rLo > crossHi) continue;
-        const a = axis === 'x' ? r.x : r.y;
-        const sz = axis === 'x' ? r.w : r.h;
-        if (a + sz <= lo + 0.5 && (!left || a + sz > (axis === 'x' ? left.x + left.w : left.y + left.h))) left = r;
-        if (a >= lo + size - 0.5 && (!right || a < (axis === 'x' ? right.x : right.y))) right = r;
-      }
-      if (!left || !right) return null;
-      const lEnd = axis === 'x' ? left.x + left.w : left.y + left.h;
-      const rStart = axis === 'x' ? right.x : right.y;
-      const target = (lEnd + rStart - size) / 2;
-      const d = target - lo;
-      if (Math.abs(d) > th || rStart - lEnd < size) return null;
-      return { d, lEnd, rStart, target };
+    // 等距（連續等距、位在兩個鄰居正中間）；與邊緣 / 中心對齊都可以吸附時，取較近的一個（相同時對齊優先）
+    const pick = (align: number | undefined, space: number | null) => {
+      if (align !== undefined && (space === null || Math.abs(align) <= Math.abs(space))) return align;
+      return space;
     };
-    let outDx = dx;
-    let outDy = dy;
-    const sx = spacing('x');
-    if (bestX) outDx = dx + bestX.d;
-    else if (sx) outDx = dx + sx.d;
-    else outDx = snap(b.x + dx, GRID_SIZE) - b.x;
-    const sy = spacing('y');
-    if (bestY) outDy = dy + bestY.d;
-    else if (sy) outDy = dy + sy.d;
-    else outDy = snap(b.y + dy, GRID_SIZE) - b.y;
+    const ddx = pick(bestX?.d, equalSpacingSnap(moved, others, 'x', th));
+    const ddy = pick(bestY?.d, equalSpacingSnap(moved, others, 'y', th));
+    const outDx = ddx !== null ? dx + ddx : snap(b.x + dx, GRID_SIZE) - b.x;
+    const outDy = ddy !== null ? dy + ddy : snap(b.y + dy, GRID_SIZE) - b.y;
     const fin = { x: b.x + outDx, y: b.y + outDy, w: b.w, h: b.h };
-    // 吸附後，左 / 中 / 右（上 / 中 / 下）每一條與其他物件重合的線都畫參考線，不只吸附的那一條
-    const aligned = alignGuides(fin, { xs: [fin.x, fin.x + fin.w / 2, fin.x + fin.w], ys: [fin.y, fin.y + fin.h / 2, fin.y + fin.h] }, others);
-    const alignedX = aligned.filter((gd) => gd.axis === 'x');
-    const alignedY = aligned.filter((gd) => gd.axis === 'y');
-    if (alignedX.length) guides.push(...alignedX);
-    else if (sx) {
-      const cy = fin.y + fin.h / 2;
-      guides.push({ axis: 'y', pos: cy, from: sx.lEnd, to: fin.x }, { axis: 'y', pos: cy, from: fin.x + fin.w, to: sx.rStart });
-    }
-    if (alignedY.length) guides.push(...alignedY);
-    else if (sy) {
-      const cx = fin.x + fin.w / 2;
-      guides.push({ axis: 'x', pos: cx, from: sy.lEnd, to: fin.y }, { axis: 'x', pos: cx, from: fin.y + fin.h, to: sy.rStart });
-    }
+    // 吸附後，左 / 中 / 右（上 / 中 / 下）每一條與其他物件重合的線都畫參考線，不只吸附的那一條；
+    // 間距相等的地方另外畫等距提示
+    guides.push(...alignGuides(fin, { xs: [fin.x, fin.x + fin.w / 2, fin.x + fin.w], ys: [fin.y, fin.y + fin.h / 2, fin.y + fin.h] }, others));
+    guides.push(...spacingGuides(fin, others));
     return { dx: outDx, dy: outDy, guides };
   }
 

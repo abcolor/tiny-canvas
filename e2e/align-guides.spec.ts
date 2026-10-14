@@ -70,3 +70,41 @@ test('移動形狀時多側同時顯示參考線', async ({ page }) => {
   const after = (await boardObjects(page)).find((o) => o.id === a)!;
   expect(after.x).toBeCloseTo(bx, 6);
 });
+
+// 移動時的等距提示：與鄰居的間距等於鄰居與上一個物件的間距時吸附並顯示（DECISIONS.md 2026-10-14）
+test('移動形狀時顯示等距提示並吸附', async ({ page }) => {
+  await createUserAndLogin(page, 'gapguides');
+  await newBoard(page);
+  const canvas = (await page.getByTestId('board-canvas').boundingBox())!;
+  const { c, top } = await page.evaluate(() => {
+    const ed = (window as any).__tcEditor;
+    const a = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, w: 200, h: 70 }, { atViewportCenter: true });
+    const o = ed.doc.getMap('objects').get(a);
+    const x = o.get('x');
+    const y = o.get('y');
+    // a、b 上下間距 40；c 在 b 下方 64
+    ed.insert({ type: 'shape', shapeKind: 'rectangle', x, y: y + 110, w: 200, h: 70 });
+    const c = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: x + 20, y: y + 244, w: 160, h: 60 });
+    ed.select([c]);
+    return { c, top: y };
+  });
+  const toScreen = (p: { x: number; y: number }) =>
+    page.evaluate((q) => (window as any).__tcEditor.worldToScreen(q), p).then((s) => ({ x: canvas.x + s.x, y: canvas.y + s.y }));
+  const before = (await boardObjects(page)).find((o) => o.id === c)!;
+  const start = await toScreen({ x: before.x + before.w / 2, y: before.y + before.h / 2 });
+  // 往上拖 22：與 b 的間距約 42，吸到 40
+  const end = await toScreen({ x: before.x + before.w / 2, y: before.y + before.h / 2 - 22 });
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 6 });
+  const gaps = (await page.evaluate(() => (window as any).__tcEditor.guides))
+    .filter((g: { gap?: boolean }) => g.gap)
+    .map((g: { from: number; to: number }) => [g.from - top, g.to - top]);
+  expect(gaps).toEqual([
+    [180, 220],
+    [70, 110],
+  ]);
+  await page.mouse.up();
+  expect((await boardObjects(page)).find((o) => o.id === c)!.y).toBeCloseTo(top + 220, 6);
+});
