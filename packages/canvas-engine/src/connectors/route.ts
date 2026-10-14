@@ -474,7 +474,8 @@ function collectObstacles(c: ConnectorObject, a: ResolvedEnd, b: ResolvedEnd, re
   const cy = (a.p.y + b.p.y) / 2;
   for (const o of ctx.obstaclesIn(region)) {
     if (o.id === c.id || exclude.has(o.id)) continue;
-    if (o.type === 'connector' || o.type === 'group' || o.type === 'section') continue;
+    // 自由文字常放在線旁邊當說明，不讓線繞開它（端點接在文字上時，下面仍會把端點物件加入障礙物）
+    if (o.type === 'connector' || o.type === 'group' || o.type === 'section' || o.type === 'text') continue;
     const r = rotatedAabb(o);
     if (!intersects(r, region)) continue;
     out.push({ r, d: Math.abs(r.x + r.w / 2 - cx) + Math.abs(r.y + r.h / 2 - cy) });

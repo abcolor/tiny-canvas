@@ -69,6 +69,33 @@ describe('正交路由', () => {
     }
   });
 
+  // 自由文字不算障礙物（DECISIONS.md 2026-10-14）
+  it('自由文字不算障礙物：擋在中間或貼近線段時，路線不變', () => {
+    const conn = { type: 'connector' as const, id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal' as const, from: { objectId: 'a', anchor: 'right' as const }, to: { objectId: 'b', anchor: 'left' as const } };
+    const plain = makeModel([rect('a', 0, 0), rect('b', 400, 0), conn]).model;
+    const expected = plain.routes.get(plain.store.get('c') as any).points;
+    expect(expected).toEqual([{ x: 100, y: 30 }, { x: 400, y: 30 }]);
+    for (const t of [
+      { x: 180, y: -40, w: 60, h: 140 }, // 擋在中間
+      { x: 150, y: 38, w: 120, h: 40 }, // 在線段下方 8 px
+    ]) {
+      const { model } = makeModel([rect('a', 0, 0), rect('b', 400, 0), { type: 'text', id: 't', ...t, text: '說明' } as any, conn]);
+      expect(model.routes.get(model.store.get('c') as any).points).toEqual(expected);
+    }
+  });
+
+  it('形狀仍是障礙物；端點接在文字上時，線從文字邊上離開、不穿過文字', () => {
+    const { model } = makeModel([
+      { type: 'text', id: 't', x: 0, y: 0, w: 100, h: 40, text: '起點' } as any,
+      rect('wall', 180, -40, { w: 60, h: 140 }),
+      rect('b', 400, 0),
+      { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: 't', anchor: 'right' }, to: { objectId: 'b', anchor: 'left' } },
+    ]);
+    const pts = model.routes.get(model.store.get('c') as any).points;
+    expect(crossesInterior(pts, { x: 180, y: -40, w: 60, h: 140 })).toBe(false);
+    expect(crossesInterior(pts, { x: 0, y: 0, w: 100, h: 40 })).toBe(false);
+  });
+
   it('障礙物移動後路由快取失效並重新計算', () => {
     const { model } = makeModel([
       rect('a', 0, 0),

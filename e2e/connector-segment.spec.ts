@@ -186,3 +186,38 @@ test('中間線段拖到端點旁邊時箭頭方向正確', async ({ page }) => 
   expect(after.end).toEqual({ x: 0, y: 1 });
   expect(after.start).toEqual({ x: 0, y: 1 });
 });
+
+// 自由文字不算障礙物：把文字拖到線旁邊，連線不改道（DECISIONS.md 2026-10-14）
+test('把文字拖到連線旁邊時，連線不會繞開文字', async ({ page }) => {
+  await createUserAndLogin(page, 'textobstacle');
+  await newBoard(page);
+  const ids = await page.evaluate(() => {
+    const ed = (window as any).__tcEditor;
+    const a = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, w: 100, h: 60 }, { atViewportCenter: true });
+    const o = ed.doc.getMap('objects').get(a);
+    const x = o.get('x');
+    const y = o.get('y');
+    const b = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: x + 400, y, w: 100, h: 60 });
+    const c = ed.insert({ type: 'connector', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: a, anchor: 'right' }, to: { objectId: b, anchor: 'left' } });
+    const t = ed.insert({ type: 'text', x: x + 180, y: y + 140, w: 120, h: 40, text: '執行任務' });
+    ed.clearSelection();
+    return { c, t };
+  });
+  const canvas = (await page.getByTestId('board-canvas').boundingBox())!;
+  const route = () => page.evaluate((id) => {
+    const ed = (window as any).__tcEditor;
+    return ed.model.routes.get(ed.model.store.get(id)).points;
+  }, ids.c);
+  const before = await route();
+  const r = await page.evaluate((id) => (window as any).__tcEditor.getObjectScreenRect(id), ids.t);
+  const from = { x: canvas.x + r.x + r.w / 2, y: canvas.y + r.y + r.h / 2 };
+  // 文字往上拖到線段下方幾 px 的位置
+  const zoom = await page.evaluate(() => (window as any).__tcEditor.getState().camera.zoom);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x, from.y - 95 * zoom, { steps: 8 });
+  await page.mouse.up();
+  const t = (await boardObjects(page)).find((o) => o.id === ids.t)!;
+  expect(t.y - before[0].y).toBeLessThan(16);
+  expect(await route()).toEqual(before);
+});
