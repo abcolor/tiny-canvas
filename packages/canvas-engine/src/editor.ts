@@ -45,6 +45,7 @@ import {
   type Rect,
 } from './geometry';
 import {
+  connectorLabelBox,
   drawObjects,
   hitObject,
   linkOpenBox,
@@ -57,7 +58,7 @@ import { wireframeClick, wireframeDefaults, wireframeHasText, wireframeTextStyle
 import { tableCellAt, tableCellTextBox } from './render/table';
 import { taskAt } from './render/text';
 import { shapeIcon, shapeTextBox } from './render/shapes';
-import { FRAME_SIZES } from './frames';
+import { FRAME_SIZES, sectionBounds } from './frames';
 import { ImageCache } from './render/images';
 import { CanvasMeasurer, FontLoader } from './text/measure';
 import { alignSegment, computeRoute, type Route } from './connectors/route';
@@ -1082,15 +1083,26 @@ export class BoardEditor {
     return s.sortByOrder(Array.from(ids)).map((id) => s.get(id)!).filter(Boolean);
   }
 
+  /**
+   * 匯出時物件實際畫出來的範圍：連線為路線加上標籤（rc 為 null 時不含標籤），裝置框包含上方的標題
+   */
+  private exportRect(o: BoardObject, rc: RenderContext | null): Rect {
+    if (o.type === 'connector') {
+      const route = this.model.unitBounds(o.id)!;
+      return rc && o.label ? unionRects([route, connectorLabelBox(o, rc)])! : route;
+    }
+    if (o.type === 'section') return sectionBounds(o);
+    return rotatedAabb(o);
+  }
+
   async exportPng(opts: ExportOptions): Promise<Blob> {
     const objs = this.scopeObjects(opts.scope);
     if (!objs.length) throw new ExportEmptyError();
-    const rects = objs.map((o) => (o.type === 'connector' ? this.model.unitBounds(o.id)! : rotatedAabb(o)));
-    const b0 = unionRects(rects) ?? { x: 0, y: 0, w: 1, h: 1 };
-    const b = inflate(b0, 24);
-    const W = Math.ceil(b.w * opts.scale);
-    const H = Math.ceil(b.h * opts.scale);
-    if (W > MAX_EXPORT_PIXELS || H > MAX_EXPORT_PIXELS) throw new ExportTooLargeError(W, H);
+    // 先以不含標籤的範圍檢查尺寸（標籤要等字型載入後才能量測）
+    const rough = inflate(unionRects(objs.map((o) => this.exportRect(o, null))) ?? { x: 0, y: 0, w: 1, h: 1 }, 24);
+    if (Math.ceil(rough.w * opts.scale) > MAX_EXPORT_PIXELS || Math.ceil(rough.h * opts.scale) > MAX_EXPORT_PIXELS) {
+      throw new ExportTooLargeError(Math.ceil(rough.w * opts.scale), Math.ceil(rough.h * opts.scale));
+    }
     // 等待字型子集與圖片
     const entries: [string, string][] = [];
     for (const o of objs) {
@@ -1120,6 +1132,13 @@ export class BoardEditor {
     this.measurer.clear();
     this.textCache.clear();
     await this.images.ensure(objs.filter((o) => o.type === 'image').map((o) => (o as any).assetId));
+    const k = opts.scale;
+    const rc: RenderContext = { ...this.baseRenderContext(), zoom: k, editing: null, exporting: true, canOpenLinks: false };
+    // 字型載入後再算一次：連線標籤可能超出線條範圍，要包含在圖片內
+    const b = inflate(unionRects(objs.map((o) => this.exportRect(o, rc))) ?? { x: 0, y: 0, w: 1, h: 1 }, 24);
+    const W = Math.ceil(b.w * k);
+    const H = Math.ceil(b.h * k);
+    if (W > MAX_EXPORT_PIXELS || H > MAX_EXPORT_PIXELS) throw new ExportTooLargeError(W, H);
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
@@ -1128,9 +1147,7 @@ export class BoardEditor {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
     }
-    const k = opts.scale;
     ctx.setTransform(k, 0, 0, k, -b.x * k, -b.y * k);
-    const rc: RenderContext = { ...this.baseRenderContext(), zoom: k, editing: null, exporting: true, canOpenLinks: false };
     drawObjects(ctx, objs, rc);
     this.renderer.invalidateAll();
     return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))), 'image/png'));
