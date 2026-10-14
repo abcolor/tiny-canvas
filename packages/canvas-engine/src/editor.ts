@@ -87,8 +87,11 @@ const SEGMENT_HIT = 6;
 const SEGMENT_ALIGN = 8;
 const ROTATE_OFFSET = 24;
 /** 外框連接點的感應範圍（螢幕像素）：形狀外側、內側，以及吸附到四邊中點的距離 */
+// 拖曳連線端點時，放在外框附近（外側 EDGE_OUT、內側 EDGE_IN 像素內）就固定在該點
 const EDGE_OUT = 14;
 const EDGE_IN = 6;
+// 游標懸停時，在外框內外 EDGE_HOVER 像素內才出現連接點，避免一靠近物件就吸附
+const EDGE_HOVER = 2;
 const MID_SNAP = 8;
 /** 會改動物件或線段的拖曳手勢 */
 const DRAG_GESTURES = new Set(['move', 'resize', 'rotate', 'connect', 'endpoint', 'segment', 'tableResize']);
@@ -1702,14 +1705,16 @@ export class BoardEditor {
   }
 
   /**
-   * 指標附近的物件外框（外側 EDGE_OUT、內側 EDGE_IN 像素內）上離指標最近的點。
+   * 指標附近的物件外框上離指標最近的點：拖曳端點時為外側 EDGE_OUT、內側 EDGE_IN 像素內，懸停（hover）時為內外 EDGE_HOVER 像素內。
    * 由上層往下找，指標落在某個物件內部但不靠近外框時，下層物件不算。
    * hover 為 true 時只考慮可以直接選取的物件（未進入的群組內的物件不顯示連接點）。
    */
   private edgeAt(screen: Point, exclude: string | null, hover: boolean): EdgeDot | null {
     const world = this.screenToWorld(screen);
     const z = this.renderer.camera.zoom;
-    const tol = EDGE_OUT / z;
+    const out = hover ? EDGE_HOVER : EDGE_OUT;
+    const inner = hover ? EDGE_HOVER : EDGE_IN;
+    const tol = out / z;
     const s = this.model.store;
     const items = s.query({ x: world.x - tol, y: world.y - tol, w: tol * 2, h: tol * 2 });
     const ids = s.sortByOrder(items.filter((i) => !i.connector).map((i) => i.id)).reverse();
@@ -1725,7 +1730,7 @@ export class BoardEditor {
         (!hover || this.tool.kind === 'connector' || this.model.selectionTarget(id) === id);
       if (eligible) {
         const near = nearestOnOutline(o, local);
-        if (near.d * z <= (inside ? EDGE_IN : EDGE_OUT)) return { id, ...this.edgeAnchor(o, near.p) };
+        if (near.d * z <= (inside ? inner : out)) return { id, ...this.edgeAnchor(o, near.p) };
       }
       if (inside && o.type !== 'section') return null;
     }
