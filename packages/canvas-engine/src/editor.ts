@@ -23,6 +23,7 @@ import { EditorModel, type Placement, type GeomPatch, type SectionDeleteMode } f
 import { Renderer, type Camera } from './renderer';
 import {
   alignGuides,
+  avoidAlignOverlap,
   clamp,
   equalSpacingSnap,
   containsPoint,
@@ -103,6 +104,8 @@ const SNAP_PX = 6;
 const GUIDE_COLOR = '#e5487a';
 /** 等距提示兩端短橫槓的半長（螢幕像素） */
 const GAP_CAP = 4;
+/** 等距提示線與對齊線重疊時移開的距離（螢幕像素） */
+const GAP_OFFSET = 12;
 
 /** 指標附近物件外框上的連接點（p 為畫布座標） */
 type EdgeDot = { id: string; anchor: Anchor; p: Point };
@@ -2316,7 +2319,8 @@ export class BoardEditor {
     // 間距相等的地方另外畫等距提示
     guides.push(...alignGuides(fin, { xs: [fin.x, fin.x + fin.w / 2, fin.x + fin.w], ys: [fin.y, fin.y + fin.h / 2, fin.y + fin.h] }, others));
     guides.push(...spacingGuides(fin, others));
-    return { dx: outDx, dy: outDy, guides };
+    // 等距提示線被中心對齊線等擋住時，往右（往下）移開
+    return { dx: outDx, dy: outDy, guides: avoidAlignOverlap(guides, GAP_OFFSET / z) };
   }
 
   private updateResize(g: Extract<Gesture, { kind: 'resize' }>, world: Point, shift: boolean, alt: boolean) {

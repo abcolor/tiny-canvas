@@ -108,3 +108,38 @@ test('移動形狀時顯示等距提示並吸附', async ({ page }) => {
   await page.mouse.up();
   expect((await boardObjects(page)).find((o) => o.id === c)!.y).toBeCloseTo(top + 220, 6);
 });
+
+// 中心對齊線與等距提示線重疊時，等距提示線往右移開（DECISIONS.md 2026-10-14）
+test('同寬置中排列時，等距提示線不被中心對齊線擋住', async ({ page }) => {
+  await createUserAndLogin(page, 'gapoffset');
+  await newBoard(page);
+  const canvas = (await page.getByTestId('board-canvas').boundingBox())!;
+  const { c, left } = await page.evaluate(() => {
+    const ed = (window as any).__tcEditor;
+    const a = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, w: 200, h: 70 }, { atViewportCenter: true });
+    const o = ed.doc.getMap('objects').get(a);
+    const x = o.get('x');
+    const y = o.get('y');
+    ed.insert({ type: 'shape', shapeKind: 'rectangle', x, y: y + 110, w: 200, h: 70 });
+    const c = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: x + 3, y: y + 244, w: 200, h: 70 });
+    ed.select([c]);
+    return { c, left: x };
+  });
+  const toScreen = (p: { x: number; y: number }) =>
+    page.evaluate((q) => (window as any).__tcEditor.worldToScreen(q), p).then((s) => ({ x: canvas.x + s.x, y: canvas.y + s.y }));
+  const before = (await boardObjects(page)).find((o) => o.id === c)!;
+  const start = await toScreen({ x: before.x + before.w / 2, y: before.y + before.h / 2 });
+  const end = await toScreen({ x: before.x + before.w / 2 - 2, y: before.y + before.h / 2 - 22 });
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 6 });
+  const { guides, zoom } = await page.evaluate(() => ({ guides: (window as any).__tcEditor.guides, zoom: (window as any).__tcEditor.getState().camera.zoom }));
+  const center = left + 100;
+  // 中心對齊線仍在中央
+  expect(guides.some((g: any) => !g.gap && g.axis === 'x' && Math.abs(g.pos - center) < 1e-6)).toBe(true);
+  // 等距提示線移到右邊 12 px（螢幕距離）
+  const gaps = guides.filter((g: any) => g.gap);
+  expect(gaps).toHaveLength(2);
+  for (const g of gaps) expect(g.pos).toBeCloseTo(center + 12 / zoom, 6);
+  await page.mouse.up();
+});

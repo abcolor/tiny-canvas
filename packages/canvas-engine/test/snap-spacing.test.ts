@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { equalSpacingSnap, spacingGuides } from '../src/geometry';
+import { alignGuides, avoidAlignOverlap, equalSpacingSnap, spacingGuides } from '../src/geometry';
 
 // 移動時的等距提示（DECISIONS.md 2026-10-14）
 const box = (x: number, y: number, w = 100, h = 60) => ({ x, y, w, h });
@@ -102,5 +102,32 @@ describe('等距提示線（spacingGuides）', () => {
     expect(spacingGuides(box(500, 500), [A, B])).toEqual([]);
     // 只有一個鄰居
     expect(spacingGuides(box(0, 200), [B])).toEqual([]);
+  });
+});
+
+describe('等距提示線避開對齊線（avoidAlignOverlap）', () => {
+  it('同寬物件置中排列：中心對齊線與等距提示線重疊時，等距提示線往右移', () => {
+    const r = box(0, 200);
+    const refs = [A, B];
+    const lines = alignGuides(r, { xs: [0, 50, 100], ys: [] }, refs);
+    // 中心對齊線在 x = 50，等距提示線原本也在 x = 50
+    expect(lines.some((g) => g.axis === 'x' && g.pos === 50)).toBe(true);
+    const out = avoidAlignOverlap([...lines, ...spacingGuides(r, refs)], 12);
+    expect(out.filter((g) => g.gap).map((g) => g.pos)).toEqual([62, 62]);
+    // 對齊線本身不動
+    expect(out.filter((g) => !g.gap)).toEqual(lines);
+  });
+
+  it('沒有重疊（位置相距夠遠，或範圍不重疊）時不移動', () => {
+    const gap = { axis: 'x' as const, pos: 50, from: 160, to: 200, gap: true };
+    expect(avoidAlignOverlap([gap, { axis: 'x', pos: 80, from: 0, to: 300 }], 12)[0].pos).toBe(50);
+    expect(avoidAlignOverlap([gap, { axis: 'x', pos: 50, from: 300, to: 400 }], 12)[0].pos).toBe(50);
+    // 不同方向的線不算
+    expect(avoidAlignOverlap([gap, { axis: 'y', pos: 50, from: 0, to: 300 }], 12)[0].pos).toBe(50);
+  });
+
+  it('左右方向的等距提示線（橫線）往下移', () => {
+    const gap = { axis: 'y' as const, pos: 30, from: 100, to: 130, gap: true };
+    expect(avoidAlignOverlap([gap, { axis: 'y', pos: 30, from: 0, to: 360 }], 12)[0].pos).toBe(42);
   });
 });

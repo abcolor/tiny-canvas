@@ -232,6 +232,21 @@ export function spacingGuides(r: Rect, refs: Rect[]): AlignGuide[] {
   return out;
 }
 
+/**
+ * 等距提示線與同方向的對齊線（例如中心對齊線）重疊時會被擋住：把它移開 offset
+ * （直的線往右、橫的線往下）。offset 為畫布座標，呼叫端依縮放換算
+ */
+export function avoidAlignOverlap(guides: AlignGuide[], offset: number): AlignGuide[] {
+  const lines = guides.filter((g) => !g.gap);
+  return guides.map((g) => {
+    if (!g.gap) return g;
+    const lo = Math.min(g.from, g.to);
+    const hi = Math.max(g.from, g.to);
+    const blocked = lines.some((l) => l.axis === g.axis && Math.abs(l.pos - g.pos) < offset / 2 && Math.min(l.from, l.to) < hi && Math.max(l.from, l.to) > lo);
+    return blocked ? { ...g, pos: g.pos + offset } : g;
+  });
+}
+
 /** 把 p 投影到從 origin 出發、角度為 step 度倍數中最接近的射線上（Shift 限制連線角度用） */
 export function snapAngle(origin: Point, p: Point, step = 45): Point {
   const dx = p.x - origin.x;
