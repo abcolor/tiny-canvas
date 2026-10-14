@@ -174,6 +174,78 @@ describe('手動路線的頭尾段至少 ROUTE_MARGIN 長', () => {
     }
   });
 
+  it('只有一段中間線段、兩端要求衝突時：在中間轉折成 S 形，頭尾段都至少 16 px', () => {
+    // a 的上緣中點 (50, 0) 往上離開；b 的下緣中點 (350, -20) 往下離開。中間線段在 y = -10：
+    // a 需要 y ≤ -16，b 需要 y ≥ -4，沒有同時滿足的位置
+    const { model } = makeModel([
+      rect('a', 0, 0, { w: 100, h: 60 }),
+      rect('b', 300, -80, { w: 100, h: 60, z: 'a1' }),
+      { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: 'a', anchor: 'top' }, to: { objectId: 'b', anchor: 'bottom' }, waypoints: [{ x: 50, y: -10 }, { x: 350, y: -10 }] } as any,
+    ]);
+    expect(points(model as any)).toEqual([
+      { x: 50, y: 0 },
+      { x: 50, y: -16 },
+      { x: 200, y: -16 },
+      { x: 200, y: -4 },
+      { x: 350, y: -4 },
+      { x: 350, y: -20 },
+    ]);
+    const r = model.routes.get(model.store.get('c') as any);
+    expect(r.endTangent).toEqual({ x: 0, y: -1 });
+    expect(r.startTangent).toEqual({ x: 0, y: 1 });
+  });
+
+  it('只有一段中間線段、兩端可以同時滿足時：移到同時滿足的位置，不轉折', () => {
+    // a 往上（需要 y ≤ -16），b 的下緣在 y = -100 往下（需要 y ≥ -84）；y = -10 只違反 a → 移到 -16
+    const { model } = makeModel([
+      rect('a', 0, 0, { w: 100, h: 60 }),
+      rect('b', 300, -160, { w: 100, h: 60, z: 'a1' }),
+      { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: 'a', anchor: 'top' }, to: { objectId: 'b', anchor: 'bottom' }, waypoints: [{ x: 50, y: -10 }, { x: 350, y: -10 }] } as any,
+    ]);
+    expect(points(model as any)).toEqual([
+      { x: 50, y: 0 },
+      { x: 50, y: -16 },
+      { x: 350, y: -16 },
+      { x: 350, y: -100 },
+    ]);
+  });
+
+  it('隨機掃描：任意手動路線與連接點（含角落與自動選邊），頭尾段都不短於箭頭', () => {
+    let seed = 1;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const anchors: unknown[] = ['left', 'right', 'top', 'bottom', null, { u: 1, v: 0.9 }, { u: 0.95, v: 1 }, { u: 1, v: 1 }, { u: 0, v: 0 }, { u: 1, v: 0.05 }];
+    const pick = () => anchors[Math.floor(rnd() * anchors.length)];
+    // 頭尾段短於 15 px（線寬 3 時的箭頭長度）且與相鄰線段垂直
+    const tooShort = (pts: P[]) => {
+      const n = pts.length;
+      if (n < 3) return false;
+      const seg = (a: P, b: P) => ({ dx: b.x - a.x, dy: b.y - a.y, len: Math.hypot(b.x - a.x, b.y - a.y) });
+      const bad = (s1: ReturnType<typeof seg>, s2: ReturnType<typeof seg>) => s1.len < 15 && s2.len >= 6 && Math.abs(s1.dx * s2.dx + s1.dy * s2.dy) < 1e-6;
+      return bad(seg(pts[n - 2], pts[n - 1]), seg(pts[n - 3], pts[n - 2])) || bad(seg(pts[0], pts[1]), seg(pts[1], pts[2]));
+    };
+    for (let iter = 0; iter < 5000; iter++) {
+      const wp: P[] = [];
+      let cur = { x: -50 + rnd() * 500, y: -150 + rnd() * 350 };
+      let horiz = rnd() < 0.5;
+      wp.push(cur);
+      for (let i = 1, k = 2 + Math.floor(rnd() * 3); i < k; i++) {
+        cur = horiz ? { x: -50 + rnd() * 500, y: cur.y } : { x: cur.x, y: -150 + rnd() * 350 };
+        wp.push(cur);
+        horiz = !horiz;
+      }
+      const toA = pick();
+      const fromA = pick();
+      const bx = 150 + rnd() * 300;
+      const by = -150 + rnd() * 300;
+      const { model } = makeModel([
+        rect('a', 0, 0, { w: 100, h: 60 }),
+        { type: 'shape', id: 'b', shapeKind: 'ellipse', x: bx, y: by, w: 60, h: 60, z: 'a1' } as any,
+        { type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: 'b', anchor: fromA }, to: { objectId: 'a', anchor: toA }, waypoints: wp } as any,
+      ]);
+      expect(tooShort(points(model as any)), JSON.stringify({ iter, toA, fromA, bx, by, wp })).toBe(false);
+    }
+  });
+
   it('掃描：已有手動路線時移動端點所在的形狀，頭尾段同樣不會太短', () => {
     for (const anchor of ['left', 'top', 'right', 'bottom', null, { u: 0, v: 0.4 }]) {
       const { model } = makeModel([

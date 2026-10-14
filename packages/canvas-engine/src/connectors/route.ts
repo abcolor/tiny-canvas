@@ -359,23 +359,53 @@ export function manualPath(a: ResolvedEnd, b: ResolvedEnd, waypoints: Point[], m
   };
   const s = lead(a, firstVertical);
   const e = lead(b, lastVertical);
-  // 頭（尾）段直接接在端點上時至少 margin 長，且沿著離開方向；否則箭頭會畫在只有幾 px 的線段上，方向與看得到的線不一致。
-  // 太短或跑到端點另一側時，把相鄰的中間線段推到距離端點 margin 的位置（只影響繪製，waypoints 不變）
-  const keepOff = (e0: ResolvedEnd, vertical: boolean, i: number, j: number) => {
-    const axis = vertical ? 'y' : 'x';
-    const d = e0.dir ? axisDir(e0.dir)[axis] : 0;
-    const len = w[i][axis] - e0.p[axis];
-    let target: number | null = null;
-    if (d !== 0 && len * d < margin) target = e0.p[axis] + d * margin;
-    else if (d === 0 && len !== 0 && Math.abs(len) < margin) target = e0.p[axis] + Math.sign(len) * margin;
-    if (target !== null) w[i][axis] = w[j][axis] = target;
-  };
-  if (s === a.p) keepOff(a, firstVertical, 0, 1);
-  if (e === b.p) keepOff(b, lastVertical, n - 1, n - 2);
   if (firstVertical) w[0].x = s.x;
   else w[0].y = s.y;
   if (lastVertical) w[n - 1].x = e.x;
   else w[n - 1].y = e.y;
+  // 頭（尾）段直接接在端點上時至少 margin 長，且沿著離開方向；否則箭頭會畫在只有幾 px 的線段上，方向與看得到的線不一致。
+  // 太短或跑到端點另一側時，把相鄰的中間線段推到距離端點 margin 的位置（只影響繪製，waypoints 不變）
+  const axisOf = (vertical: boolean) => (vertical ? 'y' : 'x');
+  /** 中間線段位置 v 是否讓接在 e0 上的頭（尾）段夠長；不夠時回傳最近的可行位置 */
+  const fix = (e0: ResolvedEnd, vertical: boolean, v: number): number => {
+    const axis = axisOf(vertical);
+    const d = e0.dir ? axisDir(e0.dir)[axis] : 0;
+    const len = v - e0.p[axis];
+    if (d !== 0) return len * d < margin ? e0.p[axis] + d * margin : v;
+    return len !== 0 && Math.abs(len) < margin ? e0.p[axis] + Math.sign(len) * margin : v;
+  };
+  const headFixed = s === a.p;
+  const tailFixed = e === b.p;
+  let jog: Point[] | null = null;
+  if (n === 2 && headFixed && tailFixed) {
+    // 只有一段中間線段：頭尾都靠它調整。找同時滿足兩端的位置，找不到時在中間轉折成 S 形
+    const axis = axisOf(firstVertical);
+    const v = w[0][axis];
+    const va = fix(a, firstVertical, v);
+    const vb = fix(b, lastVertical, v);
+    let pick: number | null = null;
+    for (const c of [v, va, vb]) if (fix(a, firstVertical, c) === c && fix(b, lastVertical, c) === c) {
+      pick = c;
+      break;
+    }
+    if (pick !== null) w[0][axis] = w[1][axis] = pick;
+    else {
+      const cross = axis === 'y' ? 'x' : 'y';
+      const mid = (w[0][cross] + w[1][cross]) / 2;
+      const at = (along: number, c: number): Point => (axis === 'y' ? { x: c, y: along } : { x: along, y: c });
+      jog = [at(va, w[0][cross]), at(va, mid), at(vb, mid), at(vb, w[1][cross])];
+    }
+  } else {
+    if (headFixed) {
+      const axis = axisOf(firstVertical);
+      w[0][axis] = w[1][axis] = fix(a, firstVertical, w[0][axis]);
+    }
+    if (tailFixed) {
+      const axis = axisOf(lastVertical);
+      w[n - 1][axis] = w[n - 2][axis] = fix(b, lastVertical, w[n - 1][axis]);
+    }
+  }
+  if (jog) w.splice(0, w.length, ...jog);
   const pts: Point[] = [a.p];
   if (s !== a.p) pts.push(s);
   pts.push(...w);
