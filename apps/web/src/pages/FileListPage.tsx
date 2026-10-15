@@ -93,7 +93,8 @@ function FileCard({ file, onOpen }: { file: FileDto; onOpen: () => void }) {
         onClick={onOpen}
         className="flex w-full flex-col overflow-hidden rounded-xl border border-ink-100 bg-white text-left hover:border-ink-200 hover:shadow-sm"
       >
-        <div className="flex h-28 items-center justify-center">
+        {/* 預覽區用接近白的淺灰，與卡片下方的白色區隔 */}
+        <div className="flex h-28 items-center justify-center bg-[#FAFBFC]">
           {file.thumbnailAt ? (
             <img
               src={thumbnailUrl(file)}
