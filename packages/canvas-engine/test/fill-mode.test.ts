@@ -112,12 +112,13 @@ describe('調色盤', () => {
     }
   });
 
-  it('文字顏色：第二深的灰為 #7C8796、最深的灰為 #2C3743，其他顏色使用外框色', () => {
+  it('文字顏色：白色為 #FFFFFF、第二深的灰為 #7C8796、最深的灰為 #2C3743，其他顏色使用外框色', () => {
     const text = DEFAULT_PALETTE.map((p) => p.textColor.toUpperCase());
+    expect(text[0]).toBe('#FFFFFF');
     expect(text[2]).toBe('#7C8796');
     expect(text[3]).toBe('#2C3743');
     TABLE.forEach(([, border], i) => {
-      if (i !== 2 && i !== 3) expect(text[i]).toBe(border);
+      if (![0, 2, 3].includes(i)) expect(text[i]).toBe(border);
     });
   });
 
