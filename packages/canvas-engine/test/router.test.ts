@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Point } from '@tinycanvas/shared';
-import { elbowPath, orthogonalPath, computeRoute } from '../src/connectors/route';
+import { elbowPath, orthogonalPath, computeRoute, narrowGaps } from '../src/connectors/route';
 import type { Rect } from '../src/geometry';
 import { makeModel, rect } from './helpers';
 
@@ -136,5 +136,49 @@ describe('正交路由', () => {
     expect(isOrthogonal(pts)).toBe(true);
     expect(pts[0]).toEqual({ x: 0, y: 0 });
     expect(pts[pts.length - 1]).toEqual({ x: 200, y: 100 });
+  });
+});
+
+describe('窄間隙（參考 Whimsical）', () => {
+  const conn = (from: string, fa: string, to: string, ta: string) =>
+    ({ type: 'connector', id: 'c', x: 0, y: 0, w: 1, h: 1, routing: 'orthogonal', from: { objectId: from, anchor: fa }, to: { objectId: to, anchor: ta } }) as any;
+
+  it('上下靠很近的兩個形狀，右邊接到下方左邊：線從下方繞，不穿過間隙，也不穿過形狀', () => {
+    for (const gap of [8, 26, 40, 60]) {
+      const top = { x: 0, y: 0, w: 160, h: 80 };
+      const bottom = { x: 0, y: 80 + gap, w: 160, h: 80 };
+      const { model } = makeModel([rect('a', 0, 0, { w: 160, h: 80 }), rect('b', 0, 80 + gap, { w: 160, h: 80 }), conn('a', 'right', 'b', 'left')]);
+      const pts = model.routes.get(model.store.get('c') as any).points;
+      expect(isOrthogonal(pts)).toBe(true);
+      expect(crossesInterior(pts, top)).toBe(false);
+      expect(crossesInterior(pts, bottom)).toBe(false);
+      // 沒有任何一段落在間隙裡
+      for (const p of pts) expect(p.y > 80 && p.y < 80 + gap).toBe(false);
+      // 從下方繞，且緊貼形狀轉彎，不繞到很遠
+      expect(Math.max(...pts.map((p) => p.y))).toBeGreaterThan(bottom.y + bottom.h);
+      expect(Math.min(...pts.map((p) => p.x))).toBeGreaterThanOrEqual(-48);
+    }
+  });
+
+  it('端點離開方向朝向間隙時不封住（樹狀排版的父節點往下接子節點）', () => {
+    const { model } = makeModel([
+      rect('p', 100, 0, { w: 160, h: 80 }),
+      rect('c1', 0, 128, { w: 160, h: 80 }),
+      rect('c2', 200, 128, { w: 160, h: 80 }),
+      conn('p', 'bottom', 'c1', 'top'),
+    ]);
+    const pts = model.routes.get(model.store.get('c') as any).points;
+    expect(pts.length).toBe(4);
+    expect(Math.max(...pts.map((p) => p.y))).toBeLessThanOrEqual(128);
+  });
+
+  it('narrowGaps：只封住端點物件旁、小於 NARROW_GAP 的間隙', () => {
+    const a = { id: 'a', type: 'shape', x: 0, y: 0, w: 100, h: 50, rotation: 0 } as any;
+    const near = { x: 0, y: 70, w: 100, h: 50 };
+    const far = { x: 0, y: -200, w: 100, h: 50 };
+    const end = { p: { x: 100, y: 25 }, dir: { x: 1, y: 0 }, obj: a } as any;
+    expect(narrowGaps([{ x: 0, y: 0, w: 100, h: 50 }, near, far], [end])).toEqual([{ x: 0, y: 50, w: 100, h: 20 }]);
+    // 離開方向朝下（朝向間隙）時不封住
+    expect(narrowGaps([near], [{ ...end, dir: { x: 0, y: 1 } }])).toEqual([]);
   });
 });

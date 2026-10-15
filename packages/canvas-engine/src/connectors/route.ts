@@ -204,8 +204,9 @@ export function orthogonalPath(
   };
   const lo = { x: region.x, y: region.y };
   const hi = { x: region.x + region.w, y: region.y + region.h };
-  const xsRaw = [s1.x, e1.x, (s1.x + e1.x) / 2, lo.x + 1, hi.x - 1];
-  const ysRaw = [s1.y, e1.y, (s1.y + e1.y) / 2, lo.y + 1, hi.y - 1];
+  // 端點外再多一條格線，繞行時可以緊貼端點轉彎，不必繞到 region 邊上
+  const xsRaw = [s1.x, e1.x, (s1.x + e1.x) / 2, lo.x + 1, hi.x - 1, s1.x - margin, s1.x + margin, e1.x - margin, e1.x + margin];
+  const ysRaw = [s1.y, e1.y, (s1.y + e1.y) / 2, lo.y + 1, hi.y - 1, s1.y - margin, s1.y + margin, e1.y - margin, e1.y + margin];
   for (const o of obs) {
     xsRaw.push(o.x, o.x + o.w);
     ysRaw.push(o.y, o.y + o.h);
@@ -495,6 +496,45 @@ function collectObstacles(c: ConnectorObject, a: ResolvedEnd, b: ResolvedEnd, re
   return rects;
 }
 
+/** 端點物件與相鄰物件的間隙小於這個距離時，線不從間隙中穿過（參考 Whimsical） */
+export const NARROW_GAP = ROUTE_MARGIN * 4;
+
+/**
+ * 端點物件與其他障礙物之間的窄間隙，回傳填滿間隙的矩形，當作額外的障礙物。
+ * 端點離開方向朝向間隙時（例如樹狀排版中父節點往下接子節點）不封住，線本來就要從這裡出去。
+ */
+export function narrowGaps(obstacles: Rect[], ends: ResolvedEnd[], gap = NARROW_GAP): Rect[] {
+  const out: Rect[] = [];
+  for (const e of ends) {
+    if (!e.obj) continue;
+    const r = rotatedAabb(e.obj);
+    const d = e.dir ? axisDir(e.dir) : null;
+    for (const o of obstacles) {
+      if (o.x === r.x && o.y === r.y && o.w === r.w && o.h === r.h) continue;
+      const x0 = Math.max(r.x, o.x);
+      const x1 = Math.min(r.x + r.w, o.x + o.w);
+      const y0 = Math.max(r.y, o.y);
+      const y1 = Math.min(r.y + r.h, o.y + o.h);
+      if (x1 > x0) {
+        // 上下相鄰
+        const below = o.y >= r.y + r.h;
+        const g = below ? o.y - (r.y + r.h) : r.y - (o.y + o.h);
+        if (g <= 0 || g >= gap || (!below && o.y + o.h > r.y)) continue;
+        if (!d || d.y === (below ? 1 : -1)) continue;
+        out.push({ x: x0, y: below ? r.y + r.h : o.y + o.h, w: x1 - x0, h: g });
+      } else if (y1 > y0) {
+        // 左右相鄰
+        const right = o.x >= r.x + r.w;
+        const g = right ? o.x - (r.x + r.w) : r.x - (o.x + o.w);
+        if (g <= 0 || g >= gap || (!right && o.x + o.w > r.x)) continue;
+        if (!d || d.x === (right ? 1 : -1)) continue;
+        out.push({ x: right ? r.x + r.w : o.x + o.w, y: y0, w: g, h: y1 - y0 });
+      }
+    }
+  }
+  return out;
+}
+
 /** 沿端點離開方向（吸附到軸）走到物件外接框邊上的點；懸空端點不變 */
 function exitPoint(e: ResolvedEnd): Point {
   if (!e.obj || !e.dir) return e.p;
@@ -536,7 +576,12 @@ export function computeRoute(c: ConnectorObject, ctx: RouteContext): Route {
     // 端點可能在外接框內（橢圓、斜邊上的任意連接點）：先沿離開方向走到外接框邊上再路由
     const sa = exitPoint(a);
     const sb = exitPoint(b);
-    const mid = orthogonalPath(sa, a.dir, sb, b.dir, obstacles, region) ?? elbowPath(sa, a.dir, sb, b.dir);
+    // 先封住端點旁的窄間隙；這樣找不到路時才允許穿過間隙
+    const gaps = narrowGaps(obstacles, [a, b]);
+    const mid =
+      (gaps.length ? orthogonalPath(sa, a.dir, sb, b.dir, [...obstacles, ...gaps], region) : null) ??
+      orthogonalPath(sa, a.dir, sb, b.dir, obstacles, region) ??
+      elbowPath(sa, a.dir, sb, b.dir);
     pts = simplify([a.p, ...mid, b.p]);
   }
   if (pts.length < 2) pts = [a.p, b.p];
