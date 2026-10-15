@@ -61,6 +61,17 @@ export const DEFAULT_PALETTE: { name: string; color: string; border: string; bac
   textColor: TEXT_COLOR_OVERRIDES[p.name] ?? p.border,
 }));
 
+/**
+ * 形狀切換顏色時一併套用的文字色（使用者指定，2026-10-15）：與「文字顏色」選擇器選同一個色塊的結果相同，
+ * 但白色形狀的背景是白色，改用最淺灰的文字色，避免看不到文字；自訂顏色使用該顏色本身
+ */
+export function shapeTextColor(color: string): string {
+  const entry = DEFAULT_PALETTE.find((p) => p.color === color.toLowerCase());
+  if (!entry) return color;
+  if (entry.name === 'white') return DEFAULT_PALETTE.find((p) => p.name === 'silver')!.textColor;
+  return entry.textColor;
+}
+
 const BY_COLOR = new Map(PALETTE_COLORS.map((p) => [p.color, p]));
 /** 形狀的顏色是調色盤的色塊時回傳該色（比對不分大小寫） */
 export function paletteEntry(color: string | undefined): (typeof PALETTE_COLORS)[number] | undefined {

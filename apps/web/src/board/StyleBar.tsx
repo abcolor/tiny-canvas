@@ -11,6 +11,7 @@ import {
   AlignVerticalDistributeCenter,
   ArrowRight,
   Blend,
+  Baseline,
   Brush,
   Check,
   ClipboardCopy,
@@ -31,7 +32,7 @@ import {
   Ungroup,
 } from 'lucide-react';
 import type { BoardEditor, EditorState } from '@tinycanvas/canvas-engine';
-import { DEFAULT_PALETTE, DEFAULT_SHAPE_COLOR, resolveStyle } from '@tinycanvas/canvas-engine';
+import { DEFAULT_PALETTE, DEFAULT_SHAPE_COLOR, resolveStyle, shapeTextColor } from '@tinycanvas/canvas-engine';
 import {
   getObjects,
   readObject,
@@ -258,6 +259,7 @@ export function StyleBar({
                 colorPicker={
                   <ColorPicker
                 label={s.textColor}
+                icon={<Baseline className="h-4 w-4" />}
                 value={style.textColor ?? (onlyText ? resolveStyle(first).textColor : undefined)}
                 fallback={resolveStyle(first).textColor}
                 swatches={TEXT_SWATCHES}
@@ -381,7 +383,8 @@ function ShapeAppearance({
         label={s.color}
         value={style.stroke ?? DEFAULT_SHAPE_COLOR}
         swatches={SHAPE_SWATCHES}
-        onPick={(c) => withMode({ stroke: c })}
+        // 文字顏色跟著換成對應的顏色；之後仍可在文字顏色選單另外調整
+        onPick={(c) => withMode({ stroke: c, textColor: shapeTextColor(c) })}
       />
       <StrokeWidthMenu label={s.strokeWidth} value={style.strokeWidth ?? 1.5} onPick={(v) => onStyle({ strokeWidth: v })} />
       <div className="flex items-center rounded-lg bg-ink-100 p-0.5" role="radiogroup" aria-label={s.appearance}>
@@ -616,6 +619,7 @@ function ColorPicker({
   onPick,
   fallback = '#ffffff',
   extra,
+  icon,
 }: {
   label: string;
   value?: string;
@@ -624,6 +628,8 @@ function ColorPicker({
   /** 尚未設定顏色時按鈕顯示的顏色 */
   fallback?: string;
   extra?: React.ReactNode;
+  /** 按鈕改顯示圖示，下方以色條表示目前的顏色（例如文字顏色） */
+  icon?: React.ReactNode;
 }) {
   const customRef = useRef<HTMLInputElement>(null);
   // 多個色塊可能套用相同的值（例如白色與第二格的外框色相同），只標示第一個
@@ -634,7 +640,18 @@ function ColorPicker({
       <Tooltip content={label}>
         <PopoverTrigger asChild>
           <button type="button" aria-label={label} className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-ink-100">
-            <span className="h-4 w-4 rounded-full border border-ink-200" style={{ background: match?.display ?? value ?? fallback }} />
+            {icon ? (
+              <span className="relative inline-flex h-4 w-4 text-ink-700">
+                {icon}
+                {/* 色條蓋在圖示的底線上；淺色時加細框才看得到 */}
+                <span
+                  className="absolute -bottom-[1px] left-0 h-[3px] w-4 rounded-full ring-1 ring-inset ring-black/15"
+                  style={{ background: value ?? fallback }}
+                />
+              </span>
+            ) : (
+              <span className="h-4 w-4 rounded-full border border-ink-200" style={{ background: match?.display ?? value ?? fallback }} />
+            )}
           </button>
         </PopoverTrigger>
       </Tooltip>

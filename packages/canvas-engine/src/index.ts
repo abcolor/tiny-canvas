@@ -18,7 +18,7 @@ export type {
 } from './types';
 export { DEFAULT_LABELS, ExportTooLargeError, ExportEmptyError } from './types';
 export type { Rect } from './geometry';
-export { CANVAS_BG, DEFAULT_PALETTE, PALETTE_COLORS, DEFAULT_SHAPE_COLOR, FONT_FAMILY, BRAND, SELECTION_COLOR, defaultShapeSize, resolveStyle, fontString, type ResolvedStyle } from './style';
+export { CANVAS_BG, shapeTextColor, DEFAULT_PALETTE, PALETTE_COLORS, DEFAULT_SHAPE_COLOR, FONT_FAMILY, BRAND, SELECTION_COLOR, defaultShapeSize, resolveStyle, fontString, type ResolvedStyle } from './style';
 export { SHAPE_ICON_NAMES, loadAllIconNames, getIconPath, drawIcon } from './render/icons';
 export {
   registerRenderer,

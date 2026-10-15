@@ -141,3 +141,41 @@ test('工具列：外面有「複製一份」，複製樣式、套用樣式、�
   await bar.getByRole('button', { name: '更多', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: '解除鎖定' })).toBeVisible();
 });
+
+// 切換形狀顏色時文字顏色跟著換，之後仍可另外調整（DECISIONS.md 2026-10-15）
+test('切換形狀顏色時文字顏色跟著換', async ({ page }) => {
+  await createUserAndLogin(page, 'shapetextcolor');
+  await newBoard(page);
+  const id = await page.evaluate(() => {
+    const ed = (window as any).__tcEditor;
+    const a = ed.insert({ type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, w: 200, h: 80, text: '文字' }, { atViewportCenter: true });
+    ed.select([a]);
+    return a as string;
+  });
+  const style = async () => (await boardObjects(page)).find((o) => o.id === id)!.style;
+  const bar = page.getByRole('toolbar', { name: '樣式工具列' });
+  const pickShape = async (name: string) => {
+    await bar.getByRole('button', { name: '顏色', exact: true }).click();
+    await page.getByRole('listbox', { name: '顏色' }).getByRole('option', { name, exact: true }).click();
+    await page.keyboard.press('Escape');
+  };
+
+  await pickShape('藍色');
+  await expect.poll(style).toMatchObject({ stroke: '#78aade', textColor: '#4685d1' });
+  // 文字顏色另外調整
+  await bar.getByRole('button', { name: '文字顏色' }).click();
+  await page.getByRole('listbox', { name: '文字顏色' }).getByRole('option', { name: '紅色', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect.poll(style).toMatchObject({ stroke: '#78aade', textColor: '#c5515e' });
+  // 再切換形狀顏色時，文字顏色再跟著換；白色形狀用最淺灰的文字色
+  await pickShape('深灰');
+  await expect.poll(style).toMatchObject({ stroke: '#848e97', textColor: '#2c3743' });
+  // 超過復原合併的間隔（300 ms），讓下一次換色成為獨立的一步
+  await page.waitForTimeout(400);
+  await pickShape('白色');
+  await expect.poll(style).toMatchObject({ stroke: '#ffffff', textColor: '#c6cfd9' });
+  // 形狀顏色與文字顏色是同一步，一次復原
+  await page.evaluate(() => (window as any).__tcEditor.focus());
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+  await expect.poll(style).toMatchObject({ stroke: '#848e97', textColor: '#2c3743' });
+});

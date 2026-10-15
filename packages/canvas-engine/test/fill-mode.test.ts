@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardObject, Style } from '@tinycanvas/shared';
-import { DEFAULT_PALETTE, mixWithWhite, parseHex, resolveStyle } from '../src/style';
+import { DEFAULT_PALETTE, mixWithWhite, parseHex, resolveStyle, shapeTextColor } from '../src/style';
 import { makeModel } from './helpers';
 
 const shape = (style: Style): BoardObject => ({
@@ -184,5 +184,17 @@ describe('文字物件的預設顏色', () => {
 
   it('形狀內的文字預設色不變', () => {
     expect(resolveStyle(shape({})).textColor).toBe('#1f2933');
+  });
+});
+
+// 形狀切換顏色時一併套用的文字色（DECISIONS.md 2026-10-15）
+describe('shapeTextColor', () => {
+  it('與文字顏色選單相同；白色改用最淺灰的文字色；自訂顏色為該顏色本身', () => {
+    expect(shapeTextColor('#ffffff')).toBe('#c6cfd9');
+    expect(shapeTextColor('#D7DDE4')).toBe('#c6cfd9');
+    expect(shapeTextColor('#a3acb5')).toBe('#7c8796');
+    expect(shapeTextColor('#848e97')).toBe('#2c3743');
+    expect(shapeTextColor('#78aade')).toBe('#4685d1');
+    expect(shapeTextColor('#123456')).toBe('#123456');
   });
 });
