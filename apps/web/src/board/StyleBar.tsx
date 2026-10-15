@@ -612,6 +612,14 @@ const LINE_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, colo
 const TEXT_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.textColor, display: p.color }));
 const FILL_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.background, display: p.color, stroke: p.border, text: p.text }));
 
+/** 很淺的顏色（相對亮度 > 0.85）；無法解析時視為不淺 */
+function isVeryLight(color: string): boolean {
+  const m = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 > 0.85;
+}
+
 function ColorPicker({
   label,
   value,
@@ -641,13 +649,12 @@ function ColorPicker({
         <PopoverTrigger asChild>
           <button type="button" aria-label={label} className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-ink-100">
             {icon ? (
-              <span className="relative inline-flex h-4 w-4 text-ink-700">
+              // 整個圖示套用目前的顏色；很淺的顏色（例如白色）加細描邊，否則在白色工具列上看不到
+              <span
+                className="inline-flex h-4 w-4"
+                style={{ color: value ?? fallback, filter: isVeryLight(value ?? fallback) ? 'drop-shadow(0 0 0.6px rgba(0, 0, 0, 0.7))' : undefined }}
+              >
                 {icon}
-                {/* 色條蓋在圖示的底線上；淺色時加細框才看得到 */}
-                <span
-                  className="absolute -bottom-[1px] left-0 h-[3px] w-4 rounded-full ring-1 ring-inset ring-black/15"
-                  style={{ background: value ?? fallback }}
-                />
               </span>
             ) : (
               <span className="h-4 w-4 rounded-full border border-ink-200" style={{ background: match?.display ?? value ?? fallback }} />

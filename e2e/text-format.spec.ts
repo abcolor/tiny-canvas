@@ -124,6 +124,10 @@ test('文字顏色選單：白色、灰色與深灰使用指定的文字色', as
     await page.getByRole('listbox', { name: '文字顏色' }).getByRole('option', { name, exact: true }).click();
     await expect.poll(color).toBe(expected);
     await page.keyboard.press('Escape');
+    // 按鈕的 Baseline 圖示整個換成目前的文字色
+    const iconColor = await bar.getByRole('button', { name: '文字顏色' }).evaluate((b) => getComputedStyle(b.querySelector('svg')!).color);
+    const hex = '#' + iconColor.match(/\d+/g)!.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+    expect(hex).toBe(expected);
   }
 });
 
