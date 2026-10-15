@@ -3,6 +3,8 @@ export * from './model/doc';
 export * from './model/richtext';
 export * from './model/extract';
 export * from './model/restore';
+export * from './model/serialize';
+export * from './model/boardFile';
 export * from './constants';
 export * from './api/schemas';
 export * from './api/types';

@@ -73,6 +73,9 @@ export const zhTW: Strings = {
     renamePrompt: '輸入新名稱',
     folderName: '資料夾名稱',
     boardName: '畫布名稱',
+    export: '匯出',
+    import: '匯入',
+    imported: '已匯入「{title}」',
   },
   trash: {
     title: '垃圾桶',
@@ -506,5 +509,9 @@ export const zhTW: Strings = {
     uploadUnsupported: '不支援的圖片格式',
     uploadFailed: '圖片上傳失敗',
     network: '網路連線失敗',
+    importInvalid: '這不是 TinyCanvas 的畫布檔案',
+    importTooLarge: '檔案超過 100 MB',
+    importFailed: '匯入失敗',
+    exportFailed: '匯出失敗',
   },
 };

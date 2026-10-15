@@ -82,6 +82,9 @@ export const en = {
     renamePrompt: 'Enter a new name',
     folderName: 'Folder name',
     boardName: 'Board name',
+    export: 'Export',
+    import: 'Import',
+    imported: 'Imported "{title}"',
   },
   trash: {
     title: 'Trash',
@@ -515,6 +518,10 @@ export const en = {
     uploadUnsupported: 'Unsupported image format',
     uploadFailed: 'Image upload failed',
     network: 'Network connection failed',
+    importInvalid: 'This file is not a TinyCanvas board',
+    importTooLarge: 'File is larger than 100 MB',
+    importFailed: 'Import failed',
+    exportFailed: 'Export failed',
   },
 };
 

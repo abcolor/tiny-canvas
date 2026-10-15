@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { strings } from '@tinycanvas/ui';
 import type { FileDto, FolderDto } from '@tinycanvas/shared';
+import { ApiError } from '../api/client';
 import { fileApi, folderApi, invalidateTree } from '../api/hooks';
 import { useDialogs } from './dialogs';
 
@@ -9,7 +10,7 @@ import { useDialogs } from './dialogs';
 export function useFileActions() {
   const qc = useQueryClient();
   const nav = useNavigate();
-  const { prompt } = useDialogs();
+  const { prompt, toast } = useDialogs();
   const done = () => invalidateTree(qc);
 
   return {
@@ -68,6 +69,31 @@ export function useFileActions() {
     trashFile: async (file: FileDto) => {
       await fileApi.trash(file.id);
       done();
+    },
+    /** 下載成 `<標題>.tinycanvas.json`（見 docs/DECISIONS.md 2026-10-15「白板匯出與匯入」） */
+    exportFile: async (file: FileDto) => {
+      try {
+        const blob = await fileApi.export(file.id);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${file.title}.tinycanvas.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch {
+        toast(strings.errors.exportFailed);
+      }
+    },
+    importBoard: async (blob: Blob, folderId: string | null) => {
+      try {
+        const f = await fileApi.import(blob, folderId);
+        done();
+        toast(strings.files.imported.replace('{title}', f.title));
+      } catch (e) {
+        if (e instanceof ApiError && e.code === 'invalid_board_file') toast(strings.errors.importInvalid);
+        else if (e instanceof ApiError && e.status === 413) toast(strings.errors.importTooLarge);
+        else toast(strings.errors.importFailed);
+      }
     },
     trashFolder: async (folder: FolderDto) => {
       await folderApi.trash(folder.id);

@@ -20,6 +20,7 @@ import type { Response } from 'express';
 import type { User } from '@tinycanvas/db';
 import {
   createFileSchema,
+  MAX_IMPORT_BYTES,
   MAX_THUMBNAIL_BYTES,
   updateFileSchema,
   type FileDto,
@@ -31,12 +32,14 @@ import { badRequest, notFound } from '../common/errors';
 import { parseBody } from '../common/zod';
 import { LibraryService } from './library.service';
 import { ThumbnailsService } from './thumbnails.service';
+import { TransferService } from './transfer.service';
 
 @Controller('api/files')
 export class FilesController {
   constructor(
     @Inject(LibraryService) private readonly lib: LibraryService,
     @Inject(ThumbnailsService) private readonly thumbnails: ThumbnailsService,
+    @Inject(TransferService) private readonly transfer: TransferService,
   ) {}
 
   /** ?folderId=<id|root>（預設 root）、?favorite=true、?recent=true、?trash=true */
@@ -54,6 +57,38 @@ export class FilesController {
     const folderId = !q.folderId || q.folderId === 'root' ? null : q.folderId;
     if (folderId !== null && !isUuid(folderId)) throw notFound();
     return (await this.lib.listFiles(user.id, folderId)).map(toFileDto);
+  }
+
+  /** 匯入白板 JSON（multipart：file，選填 folderId），建立新檔案 */
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMPORT_BYTES, files: 1 } }))
+  async importBoard(
+    @CurrentUser() user: User,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @Body() body: { folderId?: string },
+  ): Promise<FileDto> {
+    if (!file) throw badRequest('invalid_request', 'missing file');
+    const folderId = body?.folderId ? body.folderId : null;
+    if (folderId !== null && !isUuid(folderId)) throw notFound();
+    return toFileDto(await this.transfer.importBoard(user.id, file.buffer, folderId));
+  }
+
+  /** 匯出白板 JSON（含內嵌圖片），以附件下載 */
+  @Get(':id/export')
+  async exportBoard(
+    @CurrentUser() user: User,
+    @Param('id', UuidPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const data = await this.transfer.exportBoard(user.id, id);
+    const name = `${data.title}.tinycanvas.json`;
+    const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, '_');
+    res.set({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      'Cache-Control': 'no-store',
+    });
+    return new StreamableFile(Buffer.from(JSON.stringify(data)));
   }
 
   @Get(':id')

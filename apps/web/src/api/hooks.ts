@@ -121,6 +121,19 @@ export const fileApi = {
   trash: (id: string) => api(`/api/files/${id}`, { method: 'DELETE' }),
   restore: (id: string) => api(`/api/files/${id}/restore`, { method: 'POST' }),
   destroy: (id: string) => api(`/api/files/${id}`, { method: 'DELETE', query: { permanent: true } }),
+  /** 匯入白板 JSON，建立新檔案 */
+  import: (file: Blob, folderId: string | null) => {
+    const form = new FormData();
+    form.append('file', file, 'board.json');
+    if (folderId) form.append('folderId', folderId);
+    return api<FileDto>('/api/files/import', { method: 'POST', body: form });
+  },
+  /** 下載白板 JSON（含內嵌圖片） */
+  export: async (id: string): Promise<Blob> => {
+    const res = await fetch(`/api/files/${id}/export`, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`export ${res.status}`);
+    return res.blob();
+  },
 };
 
 export const folderApi = {

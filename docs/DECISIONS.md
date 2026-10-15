@@ -469,3 +469,17 @@
 - API：`GET / PUT / DELETE /api/files/{id}/thumbnail`，只有擁有者可存取。上傳時依實際內容判斷，只接受 PNG 與 WebP（瀏覽器不支援 WebP 編碼時，`toBlob` 自動改成 PNG），上限 512 KB。讀取網址帶 `?v=<thumbnailAt>`，回應 `Cache-Control: private, max-age=31536000, immutable`
 - 分享頁面不顯示縮圖；不新增依賴
 - Prisma 自動產生的 migration 會刪掉手寫的 trgm 索引，已從 migration 中移除這兩行；之後新增 migration 時要留意
+
+## 2026-10-15 白板匯出與匯入
+
+- 使用者需求：開發資料庫被誤刪後，希望能自行備份單張白板。卡片選單（首頁卡片與側邊欄共用）加「匯出」，存成 JSON；首頁標題列「新增資料夾」左邊加「匯入」，匯入成新的畫布。第 6 節延後的「全站備份匯出」仍不做，這裡只處理單張白板
+- 格式（`packages/shared/src/model/boardFile.ts`）：`{ format: 'tinycanvas-board', version: 1, title, exportedAt, objects, assets }`
+    - `objects` 沿用剪貼簿的序列化格式（`__yfrag`、`__ymap`、`__yarr`），完整保留富文本、表格、線框圖 props 等 Y 結構；依 id 排序，內容相同時輸出相同。序列化程式因此從 canvas-engine 的 clipboard.ts 移到 shared，canvas-engine 改為轉出，行為不變
+    - `assets` 內嵌圖片（base64），檔案可以獨立還原，不依賴伺服器上的圖片仍然存在
+- 匯出與匯入都在 api 處理（`TransferService`），不必先開啟畫布：
+    - `GET /api/files/{id}/export`：讀取 documents 的最新狀態（sync 1 秒內寫回），只內嵌擁有者自己的圖片；以附件回應，檔名 `<標題>.tinycanvas.json`（RFC 5987 編碼中文）
+    - `POST /api/files/import`（multipart：file、選填 folderId）：一律建立新檔案，不覆寫既有畫布。圖片以一般上傳流程重新建立（新的 id、檢查實際格式），物件中的 `assetId` 換成新 id；物件 id 保留（新文件內不會衝突）
+    - 先驗證所有物件（id 重複、類型不明、無法讀取時回傳 400 `invalid_board_file`）再上傳圖片，檔案有問題時不留下圖片；個別圖片格式不符時略過，其他內容照常匯入
+    - 上限 100 MB、50,000 個物件；匯入的檔案沒有縮圖，第一次開啟時產生（見同日「首頁卡片顯示畫布縮圖」）
+- 連結卡（link_card）的 `targetFileId` 原樣保留；匯入到其他帳號時連結會失效，與跨帳號貼上相同
+- 不新增依賴

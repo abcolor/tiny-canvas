@@ -508,6 +508,7 @@ flowchart TB
 | GET/POST/PATCH/DELETE | /api/files                        | 檔案的建立、讀取、更新、刪除（DELETE 會移到垃圾桶）                                                                                                                                         |
 | POST                  | /api/files/{id}/restore           | 從垃圾桶還原                                                                                                                                                                                |
 | GET / PUT / DELETE    | /api/files/{id}/thumbnail         | 首頁卡片縮圖：讀取、上傳（multipart，PNG 或 WebP，上限 512 KB）、刪除；只有擁有者可存取 |
+| GET / POST            | /api/files/{id}/export、/api/files/import | 單張白板匯出成 JSON（內嵌圖片）、由 JSON 匯入成新檔案（multipart，上限 100 MB），見 DECISIONS.md 2026-10-15 |
 | GET                   | /api/search?q=                    | 搜尋檔名與內容                                                                                                                                                                              |
 | GET/POST              | /api/files/{id}/versions          | 列出版本、建立命名版本                                                                                                                                                                      |
 | GET                   | /api/files/{id}/versions/{vid}    | 下載某個版本的 state（供前端預覽與還原）                                                                                                                                                    |

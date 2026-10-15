@@ -3,6 +3,7 @@ import { NavLink, useParams } from 'react-router-dom';
 import {
   ChevronRight,
   Clock,
+  Download,
   FilePlus2,
   Folder as FolderIcon,
   FolderOpen,
@@ -396,6 +397,9 @@ export function FileMenu({
           {file.isFavorite ? s.files.unfavorite : s.files.favorite}
         </MenuItem>
         <MoveToMenu folders={folders} currentId={file.folderId} onMove={(id) => actions.moveFile(file, id)} />
+        <MenuItem icon={<Download className="h-4 w-4" />} onSelect={() => actions.exportFile(file)}>
+          {s.files.export}
+        </MenuItem>
         <MenuSeparator />
         <MenuItem danger icon={<Trash2 className="h-4 w-4" />} onSelect={() => actions.trashFile(file)}>
           {s.files.moveToTrash}

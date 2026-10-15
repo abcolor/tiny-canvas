@@ -1,5 +1,6 @@
+import { useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FilePlus2, Folder as FolderIcon, FolderPlus, Star } from 'lucide-react';
+import { FilePlus2, Folder as FolderIcon, FolderPlus, Star, Upload } from 'lucide-react';
 import { Button, Spinner, strings } from '@tinycanvas/ui';
 import type { FileDto } from '@tinycanvas/shared';
 import { useFiles, useFolders } from '../api/hooks';
@@ -22,12 +23,30 @@ export function FileListPage({ mode }: { mode: 'recent' | 'favorite' | 'folder' 
   const title =
     mode === 'recent' ? strings.files.homeTitle : mode === 'favorite' ? strings.files.favoritesTitle : (folder?.name ?? '');
   const targetFolder = mode === 'folder' ? (folderId ?? null) : null;
+  const importInput = useRef<HTMLInputElement>(null);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{title}</h1>
         <div className="flex gap-2">
+          {/* 匯入白板 JSON（見 docs/DECISIONS.md 2026-10-15「白板匯出與匯入」） */}
+          <input
+            ref={importInput}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            data-testid="import-input"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void actions.importBoard(f, targetFolder);
+            }}
+          />
+          <Button onClick={() => importInput.current?.click()}>
+            <Upload className="h-4 w-4" />
+            {strings.files.import}
+          </Button>
           {mode !== 'favorite' ? (
             <Button onClick={() => actions.newFolder(targetFolder)}>
               <FolderPlus className="h-4 w-4" />

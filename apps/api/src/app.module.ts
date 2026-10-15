@@ -12,6 +12,7 @@ import { AuthController } from './auth/auth.controller';
 import { LibraryService } from './files/library.service';
 import { FilesController } from './files/files.controller';
 import { ThumbnailsService } from './files/thumbnails.service';
+import { TransferService } from './files/transfer.service';
 import { FoldersController } from './folders/folders.controller';
 import { SearchController } from './search/search.controller';
 import { SearchService } from './search/search.service';
@@ -61,6 +62,7 @@ export const coreProviders = [
     AuthService,
     LibraryService,
     ThumbnailsService,
+    TransferService,
     SearchService,
     VersionsService,
     ShareService,
