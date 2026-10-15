@@ -46,9 +46,17 @@ const BASE_STROKE = '#7c8796';
 /** 自訂顏色（不在調色盤內）的淡色背景：外框色 21% 混 79% 白色，與調色盤的背景色相近 */
 const CUSTOM_BACKGROUND_WHITE = 0.79;
 
-export const DEFAULT_PALETTE: { name: string; color: string; border: string; background: string; text: string }[] = PALETTE_COLORS.map((p) => ({
+/** 「文字顏色」選擇器選這兩個灰色時另外指定的顏色（使用者指定，2026-10-15）；其他顏色使用外框色 */
+const TEXT_COLOR_OVERRIDES: Record<string, string> = { gray: '#7c8796', slate: '#2c3743' };
+
+/**
+ * - text：區塊、表格等「填色」選擇器選色時一併設定的文字色
+ * - textColor：「文字顏色」選擇器選這個色塊時套用的顏色
+ */
+export const DEFAULT_PALETTE: { name: string; color: string; border: string; background: string; text: string; textColor: string }[] = PALETTE_COLORS.map((p) => ({
   ...p,
   text: TEXT_DEFAULT_COLOR,
+  textColor: TEXT_COLOR_OVERRIDES[p.name] ?? p.border,
 }));
 
 const BY_COLOR = new Map(PALETTE_COLORS.map((p) => [p.color, p]));

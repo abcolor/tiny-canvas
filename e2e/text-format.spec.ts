@@ -106,3 +106,22 @@ test('文字物件的工具列沒有邊框顏色，形狀有', async ({ page }) 
   });
   await expect(bar.getByRole('button', { name: '顏色', exact: true })).toBeVisible();
 });
+
+// 文字顏色：兩種較深的灰另外指定文字色，其他顏色使用外框色（DECISIONS.md 2026-10-15）
+test('文字顏色選單：灰色與深灰使用指定的文字色', async ({ page }) => {
+  await createUserAndLogin(page, 'textcolor');
+  await newBoard(page);
+  const id = await shapeWithText(page, '文字');
+  const bar = page.getByRole('toolbar', { name: '樣式工具列' });
+  const color = async () => (await boardObjects(page)).find((o) => o.id === id)!.style.textColor;
+  for (const [name, expected] of [
+    ['灰色', '#7c8796'],
+    ['深灰', '#2c3743'],
+    ['藍色', '#4685d1'],
+  ] as const) {
+    await bar.getByRole('button', { name: '文字顏色' }).click();
+    await page.getByRole('listbox', { name: '文字顏色' }).getByRole('option', { name, exact: true }).click();
+    await expect.poll(color).toBe(expected);
+    await page.keyboard.press('Escape');
+  }
+});

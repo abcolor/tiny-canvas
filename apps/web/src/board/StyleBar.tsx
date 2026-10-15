@@ -260,7 +260,7 @@ export function StyleBar({
                 label={s.textColor}
                 value={style.textColor}
                 fallback="#33322d"
-                swatches={LINE_SWATCHES}
+                swatches={TEXT_SWATCHES}
                 onPick={(c) => setStyle({ textColor: c })}
               />
                 }
@@ -606,6 +606,7 @@ interface Swatch {
 /** 色盤：顯示色塊顏色；形狀套用色塊顏色本身（繪製時由引擎對應外框與背景），其他物件套用外框色 */
 const SHAPE_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }));
 const LINE_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.border, display: p.color }));
+const TEXT_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.textColor, display: p.color }));
 const FILL_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.background, display: p.color, stroke: p.border, text: p.text }));
 
 function ColorPicker({
