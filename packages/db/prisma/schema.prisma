@@ -80,6 +80,9 @@ model File {
   shareLinks ShareLink[]
 
   @@index([ownerId, folderId])
+  // 搜尋用的 trigram 索引，由 20261011180507_search_trgm 建立；宣告在這裡，migrate dev 才不會想刪掉它們
+  @@index([title(ops: raw("gin_trgm_ops"))], map: "files_title_trgm_idx", type: Gin)
+  @@index([searchText(ops: raw("gin_trgm_ops"))], map: "files_search_text_trgm_idx", type: Gin)
   @@map("files")
 }
 

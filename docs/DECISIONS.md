@@ -468,7 +468,7 @@
 - 儲存：圖片放在獨立的 `file_thumbnails` 表（bytea），避免列表查詢讀到圖片；產生時間記在 `files.thumbnail_at`，由 `FileDto.thumbnailAt` 帶出。上傳縮圖不改 `files.updated_at`，不影響「最近檔案」的排序
 - API：`GET / PUT / DELETE /api/files/{id}/thumbnail`，只有擁有者可存取。上傳時依實際內容判斷，只接受 PNG 與 WebP（瀏覽器不支援 WebP 編碼時，`toBlob` 自動改成 PNG），上限 512 KB。讀取網址帶 `?v=<thumbnailAt>`，回應 `Cache-Control: private, max-age=31536000, immutable`
 - 分享頁面不顯示縮圖；不新增依賴
-- Prisma 自動產生的 migration 會刪掉手寫的 trgm 索引，已從 migration 中移除這兩行；之後新增 migration 時要留意
+- Prisma 自動產生的 migration 會刪掉手寫的 trgm 索引，已從 migration 中移除這兩行。後續把兩個索引以 `@@index(..., type: Gin, ops: raw("gin_trgm_ops"))` 宣告在 schema.prisma（與既有索引同名），`migrate dev` 不再想刪掉它們，也不會在套用 migration 後要求替新的 migration 命名；schema 與四個資料庫（開發、api 測試、sync 測試、E2E）比對皆無差異
 
 ## 2026-10-15 白板匯出與匯入
 
