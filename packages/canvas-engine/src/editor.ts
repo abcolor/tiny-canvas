@@ -2077,7 +2077,8 @@ export class BoardEditor {
     if (h.kind === 'rotate') {
       const c = rectCenter(f.box);
       const a = (Math.atan2(world.y - c.y, world.x - c.x) * 180) / Math.PI;
-      this.lift(units);
+      // 形狀內的物件跟著旋轉，一起抬到即時圖層
+      this.lift([...units, ...m.carriedUnits(units)]);
       this.gesture = { kind: 'rotate', units, center: c, startAngle: a, startRotation: f.rotation, delta: 0 };
       return;
     }

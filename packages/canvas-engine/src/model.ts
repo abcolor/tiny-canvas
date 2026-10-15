@@ -32,10 +32,12 @@ import { TABLE_CELL_PAD } from './render/table';
 import {
   containsPoint,
   intersects,
+  objectCorners,
   rectCenter,
   rotatePoint,
   rotatedAabb,
   snap,
+  toLocal,
   unionRects,
   type Rect,
 } from './geometry';
@@ -462,7 +464,7 @@ export class EditorModel {
   /**
    * 移動形狀時一起帶走的物件（見 SPEC.md 第 3.3 節「形狀內的物件」）：與形狀在同一層容器、
    * 完整位在形狀範圍內、且畫在形狀上方的物件（群組以整個群組為單位；連線、區塊、鎖定的物件除外）。
-   * 被帶走的形狀會再帶走它範圍內的物件（可多層）。旋轉過的形狀不帶走任何物件。
+   * 被帶走的形狀會再帶走它範圍內的物件（可多層）。旋轉過的形狀以它自己的座標判斷範圍（物件的四個角都在形狀內）。
    * 回傳不含 units 本身的額外單位。
    */
   carriedUnits(units: string[]): string[] {
@@ -472,18 +474,23 @@ export class EditorModel {
     const queue = units.filter((id) => this.store.get(id)?.type === 'shape');
     while (queue.length) {
       const shape = this.store.get(queue.shift()!);
-      if (!shape || shape.rotation !== 0) continue;
+      if (!shape) continue;
       const level = this.store.effectiveParent(shape);
       const box = { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
-      for (const it of this.store.query(box)) {
+      const inside = (p: Point) => {
+        const q = toLocal(shape, p);
+        return q.x >= box.x - 1e-6 && q.y >= box.y - 1e-6 && q.x <= box.x + box.w + 1e-6 && q.y <= box.y + box.h + 1e-6;
+      };
+      for (const it of this.store.query(rotatedAabb(shape))) {
         if (it.connector) continue;
         const unitId = this.unitAtLevel(it.id, level);
         if (!unitId || taken.has(unitId)) continue;
         const u = this.store.get(unitId)!;
         if (u.type === 'connector' || u.type === 'section' || this.isLocked(unitId)) continue;
         if (compareZ(u, shape) <= 0) continue;
-        const b = this.unitBounds(unitId);
-        if (!b || b.x < box.x || b.y < box.y || b.x + b.w > box.x + box.w || b.y + b.h > box.y + box.h) continue;
+        // 單一物件以實際（旋轉後）的四個角判斷；群組以外接框判斷
+        const corners = u.type === 'group' ? (() => { const b = this.unitBounds(unitId); return b ? objectCorners(b) : null; })() : objectCorners(u);
+        if (!corners || !corners.every(inside)) continue;
         taken.add(unitId);
         for (const d of this.store.descendants(unitId)) taken.add(d);
         result.push(unitId);
@@ -1098,18 +1105,26 @@ export class EditorModel {
     const out = new Map<string, GeomPatch>();
     const units = this.normalizeUnits(ids).filter((id) => !this.isLocked(id));
     if (!units.length || !this.canRotate(units)) return out;
-    if (units.length === 1 && this.store.get(units[0])!.type !== 'group') {
-      const o = this.store.get(units[0])!;
-      out.set(o.id, { rotation: norm360(o.rotation + delta) });
-      return out;
+    const single = units.length === 1 && this.store.get(units[0])!.type !== 'group' ? this.store.get(units[0])! : null;
+    const c = single ? rectCenter(single) : (center ?? rectCenter(this.selectionBounds(units)!));
+    if (single) out.set(single.id, { rotation: norm360(single.rotation + delta) });
+    else {
+      for (const u of units) {
+        for (const id of [u, ...this.store.descendants(u)]) {
+          const o = this.store.get(id)!;
+          if (o.type === 'group' || o.type === 'connector') continue;
+          const oc = rotatePoint(rectCenter(o), c, delta);
+          out.set(id, { x: oc.x - o.w / 2, y: oc.y - o.h / 2, rotation: norm360(o.rotation + delta) });
+        }
+      }
     }
-    const c = center ?? rectCenter(this.selectionBounds(units)!);
-    for (const u of units) {
+    // 形狀內的物件繞同一個中心一起旋轉；不能旋轉的物件（例如表格）只移動位置
+    for (const u of this.carriedUnits(units)) {
       for (const id of [u, ...this.store.descendants(u)]) {
         const o = this.store.get(id)!;
-        if (o.type === 'group' || o.type === 'connector') continue;
+        if (o.type === 'group' || o.type === 'connector' || out.has(id)) continue;
         const oc = rotatePoint(rectCenter(o), c, delta);
-        out.set(id, { x: oc.x - o.w / 2, y: oc.y - o.h / 2, rotation: norm360(o.rotation + delta) });
+        out.set(id, { x: oc.x - o.w / 2, y: oc.y - o.h / 2, rotation: NON_ROTATABLE.has(o.type) ? o.rotation : norm360(o.rotation + delta) });
       }
     }
     return out;

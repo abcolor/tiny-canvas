@@ -54,15 +54,21 @@ describe('形狀內的物件跟著形狀移動', () => {
     expect(model.store.get('g2')!.y).toBe(50);
   });
 
-  it('鎖定的物件、連線、旋轉過的形狀都不帶走', () => {
-    const { model } = makeModel([
-      box('A', 0, 0, 300, 200, 'a0'),
-      box('L', 20, 20, 40, 40, 'a1', { locked: true }),
-      box('R', 0, 300, 300, 200, 'a2', { rotation: 30 }),
-      box('RIn', 100, 350, 40, 40, 'a3'),
-    ]);
+  it('鎖定的物件不帶走', () => {
+    const { model } = makeModel([box('A', 0, 0, 300, 200, 'a0'), box('L', 20, 20, 40, 40, 'a1', { locked: true })]);
     expect(model.carriedUnits(['A'])).toEqual([]);
-    expect(model.carriedUnits(['R'])).toEqual([]);
+  });
+
+  // 旋轉過的形狀也帶走裡面的物件（DECISIONS.md 2026-10-15）
+  it('旋轉過的形狀：以形狀自己的座標判斷，物件四個角都在形狀內才帶走', () => {
+    const { model } = makeModel([
+      box('R', 0, 300, 300, 200, 'a2', { rotation: 30 }),
+      // 在形狀中心附近：旋轉後仍在範圍內
+      box('RIn', 130, 380, 40, 40, 'a3'),
+      // 在旋轉後的外接框內，但落在旋轉後形狀的外面（左上角）
+      box('ROut', -40, 260, 30, 30, 'a4'),
+    ]);
+    expect(model.carriedUnits(['R'])).toEqual(['RIn']);
   });
 
   it('物件本身也在選取中時不會重複移動', () => {
@@ -188,5 +194,55 @@ describe('刪除形狀時一起刪除形狀內的物件', () => {
     ]);
     model.deleteIds(['A']);
     expect([...model.store.objects.keys()].sort()).toEqual(['Locked', 'Partial', 'Under']);
+  });
+});
+
+// 旋轉形狀時，形狀內的物件跟著旋轉（DECISIONS.md 2026-10-15）
+describe('旋轉形狀時形狀內的物件一起旋轉', () => {
+  const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThan(1e-6);
+
+  it('物件繞形狀中心旋轉同樣的角度，連同位置；不能旋轉的物件只移動位置', () => {
+    const { model } = makeModel([
+      box('A', 0, 0, 300, 200, 'a0'),
+      box('B', 200, 80, 40, 40, 'a1'),
+      { type: 'table', id: 'T', x: 30, y: 60, w: 80, h: 60, z: 'a2', columns: [{ id: 'c1', width: 80 }], rows: [{ id: 'r1', height: 60 }] } as any,
+    ]);
+    model.rotate(90, ['A']);
+    expect(model.store.get('A')!.rotation).toBe(90);
+    // B 的中心 (220, 100) 繞 (150, 100) 轉 90 度 → (150, 170)
+    const b = model.store.get('B')!;
+    near(b.x + b.w / 2, 150);
+    near(b.y + b.h / 2, 170);
+    expect(b.rotation).toBe(90);
+    // 表格中心 (70, 90) → (160, 20)，角度不變
+    const t = model.store.get('T')!;
+    near(t.x + t.w / 2, 160);
+    near(t.y + t.h / 2, 20);
+    expect(t.rotation).toBe(0);
+  });
+
+  it('旋轉後仍然帶走同樣的物件，再次旋轉時繼續跟著轉；一個 transaction、一步復原', () => {
+    const { doc, model } = makeModel([box('A', 0, 0, 300, 200, 'a0'), box('B', 200, 80, 40, 40, 'a1')]);
+    model.stopCapturing();
+    const before = model.undoManager.undoStack.length;
+    const tx = countTransactions(doc);
+    model.rotate(30, ['A']);
+    tx.stop();
+    model.stopCapturing();
+    expect(tx.list).toHaveLength(1);
+    expect(model.undoManager.undoStack.length).toBe(before + 1);
+    expect(model.carriedUnits(['A'])).toEqual(['B']);
+    model.rotate(60, ['A']);
+    const b = model.store.get('B')!;
+    near(b.x + b.w / 2, 150);
+    near(b.y + b.h / 2, 170);
+    expect(b.rotation).toBe(90);
+    // 旋轉後移動，同樣一起帶走
+    model.moveUnits(['A', ...model.carriedUnits(['A'])], 10, 0);
+    near(model.store.get('B')!.x + 20, 160);
+    model.undo();
+    model.undo();
+    model.undo();
+    expect(model.store.get('B')).toMatchObject({ x: 200, y: 80, rotation: 0 });
   });
 });
