@@ -2,13 +2,13 @@ import { useRef } from 'react';
 import {
   Hand,
   Image as ImageIcon,
-  LayoutTemplate,
   Link2,
   MousePointer2,
-  Shapes,
+  RectangleHorizontal,
   Smile,
   Spline,
   Table2,
+  ToggleRight,
   Type,
 } from 'lucide-react';
 import type { BoardEditor, EditorState, Tool } from '@tinycanvas/canvas-engine';
@@ -73,7 +73,7 @@ export function Toolbar({
                 isTool(tool, 'shape') && 'bg-brand-100 text-brand-800 hover:bg-brand-100',
               )}
             >
-              <Shapes className="h-4 w-4" />
+              <RectangleHorizontal className="h-4 w-4" />
             </button>
           </PopoverTrigger>
         </Tooltip>
@@ -102,7 +102,7 @@ export function Toolbar({
       </IconButton>
       <div className="mx-1.5 my-1 h-px bg-ink-100" />
       <IconButton label={t.wireframe} shortcut="W" tooltipSide="right" active={isTool(tool, 'wireframe')} onClick={onOpenWireframes}>
-        <LayoutTemplate className="h-4 w-4" />
+        <ToggleRight className="h-4 w-4" />
       </IconButton>
       <IconButton label={t.icon} shortcut="I" tooltipSide="right" active={isTool(tool, 'icon')} onClick={onOpenIcons}>
         <Smile className="h-4 w-4" />

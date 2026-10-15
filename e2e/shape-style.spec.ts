@@ -20,25 +20,24 @@ test('形狀外觀控制項', async ({ page }) => {
   await bar.getByRole('radio', { name: '圓形' }).click();
   await expect.poll(async () => (await obj()).shapeKind).toBe('ellipse');
 
-  // 新形狀預設「只有外框＋透明背景」（DECISIONS.md 2026-10-15）
+  // 新形狀預設「只有外框、不透明背景」（DECISIONS.md 2026-10-15）
   await expect(bar.getByRole('radio', { name: '只有外框' })).toHaveAttribute('aria-checked', 'true');
-  await expect(bar.getByRole('button', { name: '透明背景' })).toHaveAttribute('aria-pressed', 'true');
-  expect((await obj()).style).toMatchObject({ fillMode: 'outline', transparent: true });
+  await expect(bar.getByRole('button', { name: '透明背景' })).toHaveAttribute('aria-pressed', 'false');
+  expect((await obj()).style).toMatchObject({ fillMode: 'outline', transparent: false });
   await bar.getByRole('radio', { name: '整個填滿' }).click();
   await expect.poll(async () => (await obj()).style.fillMode).toBe('solid');
   // 整個填滿時透明開關停用
   await expect(bar.getByRole('button', { name: '透明背景' })).toBeDisabled();
-  // 切到虛線外框時維持透明，不會突然出現背景色
+  // 切到虛線外框時背景維持不透明
   await bar.getByRole('radio', { name: '虛線外框' }).click();
   await expect.poll(async () => (await obj()).style.fillMode).toBe('dashed');
-  expect((await obj()).style.transparent).toBe(true);
-  await expect(bar.getByRole('button', { name: '透明背景' })).toHaveAttribute('aria-pressed', 'true');
+  expect((await obj()).style.transparent).toBe(false);
 
-  // 透明開關：關掉後有淡色背景，再打開
-  await bar.getByRole('button', { name: '透明背景' }).click();
-  await expect.poll(async () => (await obj()).style.transparent).toBe(false);
+  // 透明開關
   await bar.getByRole('button', { name: '透明背景' }).click();
   await expect.poll(async () => (await obj()).style.transparent).toBe(true);
+  await bar.getByRole('button', { name: '透明背景' }).click();
+  await expect.poll(async () => (await obj()).style.transparent).toBe(false);
 
   // 顏色
   await bar.getByRole('button', { name: '顏色', exact: true }).click();
@@ -93,8 +92,8 @@ test('顏色選擇器：15 個預設色與自訂顏色', async ({ page }) => {
     '#7FC4BD', '#63A09A', '#ABA391', '#B99796',
     '#D5838D', '#E5AC7F', '#F0D78F',
   ]);
-  // 新形狀預設選取第 1 列第 4 格
-  await expect(list.getByRole('option', { name: '深灰' })).toHaveAttribute('aria-selected', 'true');
+  // 新形狀預設白色（第 1 列第 1 格）
+  await expect(list.getByRole('option', { name: '白色' })).toHaveAttribute('aria-selected', 'true');
   // 白色與淺灰的外框色相同，選擇後仍能分辨
   const stroke = () => page.evaluate(() => { const ed = (window as any).__tcEditor; return ed.model.store.get(ed.getState().selection[0]).style.stroke; });
   await list.getByRole('option', { name: '淺灰' }).click();

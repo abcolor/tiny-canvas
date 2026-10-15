@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Image as ImageIcon, LayoutTemplate, Link2, Search, Smile, Spline, Table2, Type } from 'lucide-react';
+import { Image as ImageIcon, Link2, Search, Smile, Spline, Table2, ToggleRight, Type } from 'lucide-react';
 import type { BoardEditor, Tool } from '@tinycanvas/canvas-engine';
 import { SHAPE_KINDS, WIREFRAME_KINDS, type FrameKind } from '@tinycanvas/shared';
 import { cn, dictionaries, format, strings, type Strings } from '@tinycanvas/ui';
@@ -72,7 +72,7 @@ export function CommandPalette({
         icon: <WireframeIcon kind={k} />,
         run: tool({ kind: 'wireframe', componentKind: k }),
       })),
-      { id: 'wflib', label: strings.wireframes.title, keywords: `wireframe library ${inAll((d) => d.wireframes.title)}`, icon: <LayoutTemplate className="h-4 w-4" />, run: onOpenWireframes },
+      { id: 'wflib', label: strings.wireframes.title, keywords: `wireframe library ${inAll((d) => d.wireframes.title)}`, icon: <ToggleRight className="h-4 w-4" />, run: onOpenWireframes },
       { id: 'icon', label: strings.icons.title, keywords: `icon lucide 圖標 ${inAll((d) => d.icons.title)}`, icon: <Smile className="h-4 w-4" />, run: onOpenIcons },
       { id: 'link', label: strings.tools.linkCard, keywords: `link card file ${inAll((d) => d.tools.linkCard)}`, icon: <Link2 className="h-4 w-4" />, run: onInsertLinkCard },
       { id: 'image', label: strings.tools.image, keywords: `image picture ${inAll((d) => d.tools.image)}`, icon: <ImageIcon className="h-4 w-4" />, run: () => document.querySelector<HTMLInputElement>('input[type=file][accept^="image"]')?.click() },

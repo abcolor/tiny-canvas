@@ -112,8 +112,8 @@ describe('調色盤', () => {
     }
   });
 
-  it('新形狀（未指定顏色）使用第 1 列第 4 格：外框 #7C8796、背景 #D0D8DF', () => {
-    expect(resolveStyle(shape({ fillMode: 'outline' }))).toMatchObject({ stroke: '#7c8796', fill: '#d0d8df' });
+  it('新形狀（未指定顏色）使用白色：外框 #C6CFD9、背景 #FFFFFF', () => {
+    expect(resolveStyle(shape({ fillMode: 'outline' }))).toMatchObject({ stroke: '#c6cfd9', fill: '#ffffff' });
   });
 });
 
@@ -133,24 +133,23 @@ describe('圓角矩形的圓角半徑', () => {
   });
 });
 
-// 新形狀預設「只有外框＋透明背景」（DECISIONS.md 2026-10-15）
+// 新形狀預設「只有外框、不透明背景」（DECISIONS.md 2026-10-15）
 describe('新形狀的預設外觀', () => {
-  it('建立時存入只有外框、透明背景；背景確實透明', () => {
+  it('建立時存入只有外框、不透明背景：預設白色，外框 #C6CFD9、背景 #FFFFFF', () => {
     const { model } = makeModel([]);
     const id = model.insert({ type: 'shape', x: 0, y: 0, w: 100, h: 60 });
     const o = model.store.get(id)!;
-    expect(o.style).toMatchObject({ fillMode: 'outline', transparent: true });
-    expect(resolveStyle(o).fill).toBe('transparent');
+    expect(o.style).toMatchObject({ fillMode: 'outline', transparent: false });
+    expect(resolveStyle(o)).toMatchObject({ stroke: '#c6cfd9', fill: '#ffffff' });
   });
 
-  it('切換成虛線外框時維持透明', () => {
+  it('切換成虛線外框時背景不變', () => {
     const { model } = makeModel([]);
     const id = model.insert({ type: 'shape', x: 0, y: 0, w: 100, h: 60 });
     model.setStyle({ fillMode: 'dashed' }, [id]);
     const o = model.store.get(id)!;
-    expect(o.style).toMatchObject({ fillMode: 'dashed', transparent: true });
-    expect(resolveStyle(o).fill).toBe('transparent');
-    expect(resolveStyle(o).strokeStyle).toBe('dashed');
+    expect(o.style).toMatchObject({ fillMode: 'dashed', transparent: false });
+    expect(resolveStyle(o)).toMatchObject({ fill: '#ffffff', strokeStyle: 'dashed' });
   });
 
   it('有指定外觀時照指定的；其他物件類型不受影響', () => {

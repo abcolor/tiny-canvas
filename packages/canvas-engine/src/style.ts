@@ -38,8 +38,8 @@ export const PALETTE_COLORS: { name: string; color: string; border: string; back
 
 /** 淺色（例如白色）當外框時改用的邊框色（調色盤白色的外框色） */
 export const LIGHT_STROKE = '#c6cfd9';
-/** 形狀的預設顏色（調色盤的 slate；繪製時外框為 #7c8796） */
-export const DEFAULT_SHAPE_COLOR = '#848e97';
+/** 形狀的預設顏色（調色盤的白色；繪製時外框為 #c6cfd9、背景為 #ffffff） */
+export const DEFAULT_SHAPE_COLOR = '#ffffff';
 /** 未設定外觀的舊形狀與其他物件的預設外框色 */
 const BASE_STROKE = '#7c8796';
 /** 自訂顏色（不在調色盤內）的淡色背景：外框色 21% 混 79% 白色，與調色盤的背景色相近 */
