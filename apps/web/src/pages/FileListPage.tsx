@@ -93,7 +93,7 @@ function FileCard({ file, onOpen }: { file: FileDto; onOpen: () => void }) {
         onClick={onOpen}
         className="flex w-full flex-col overflow-hidden rounded-xl border border-ink-100 bg-white text-left hover:border-ink-200 hover:shadow-sm"
       >
-        <div className="flex h-28 items-center justify-center bg-[radial-gradient(circle,_#dedcd6_1px,_transparent_1px)] [background-size:12px_12px]">
+        <div className="flex h-28 items-center justify-center">
           {file.thumbnailAt ? (
             <img
               src={thumbnailUrl(file)}
