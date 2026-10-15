@@ -458,7 +458,8 @@ flowchart TB
 | users        | id, email, password_hash, name, created_at                                                                                                    |
 | sessions     | id, user_id, csrf_token, expires_at, created_at                                                                                               |
 | folders      | id, owner_id, parent_id, name, is_tabbed, sort_key, deleted_at                                                                                |
-| files        | id, owner_id, folder_id, type（本期只有 board）, title, is_favorite, search_text(text), asset_ids(uuid[]), created_at, updated_at, deleted_at |
+| files        | id, owner_id, folder_id, type（本期只有 board）, title, is_favorite, search_text(text), asset_ids(uuid[]), thumbnail_at, created_at, updated_at, deleted_at |
+| file_thumbnails | file_id, mime, data（bytea，首頁卡片縮圖，見 DECISIONS.md 2026-10-15） |
 | documents    | file_id, state（bytea，Yjs 完整狀態）, content_hash, updated_at                                                                               |
 | doc_versions | id, file_id, state（bytea，gzip）, content_hash, asset_ids(uuid[]), label（手動版本才有）, created_at                                         |
 | share_links  | id, file_id, token, password_hash, expires_at, revoked_at, created_at                                                                         |
@@ -506,6 +507,7 @@ flowchart TB
 | GET/POST/PATCH/DELETE | /api/folders                      | 資料夾的建立、讀取、更新、刪除                                                                                                                                                              |
 | GET/POST/PATCH/DELETE | /api/files                        | 檔案的建立、讀取、更新、刪除（DELETE 會移到垃圾桶）                                                                                                                                         |
 | POST                  | /api/files/{id}/restore           | 從垃圾桶還原                                                                                                                                                                                |
+| GET / PUT / DELETE    | /api/files/{id}/thumbnail         | 首頁卡片縮圖：讀取、上傳（multipart，PNG 或 WebP，上限 512 KB）、刪除；只有擁有者可存取 |
 | GET                   | /api/search?q=                    | 搜尋檔名與內容                                                                                                                                                                              |
 | GET/POST              | /api/files/{id}/versions          | 列出版本、建立命名版本                                                                                                                                                                      |
 | GET                   | /api/files/{id}/versions/{vid}    | 下載某個版本的 state（供前端預覽與還原）                                                                                                                                                    |

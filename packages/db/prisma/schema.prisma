@@ -57,22 +57,25 @@ model Folder {
 }
 
 model File {
-  id         String    @id @default(uuid()) @db.Uuid
-  ownerId    String    @map("owner_id") @db.Uuid
-  folderId   String?   @map("folder_id") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  ownerId     String    @map("owner_id") @db.Uuid
+  folderId    String?   @map("folder_id") @db.Uuid
   // 本期只有 board；日後用來存放 doc
-  type       String    @default("board")
-  title      String
-  isFavorite Boolean   @default(false) @map("is_favorite")
-  searchText String    @default("") @map("search_text")
-  assetIds   String[]  @default([]) @map("asset_ids") @db.Uuid
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  type        String    @default("board")
+  title       String
+  isFavorite  Boolean   @default(false) @map("is_favorite")
+  searchText  String    @default("") @map("search_text")
+  assetIds    String[]  @default([]) @map("asset_ids") @db.Uuid
+  // 首頁卡片縮圖的產生時間（圖片本身在 file_thumbnails，避免列表查詢讀到圖片）
+  thumbnailAt DateTime? @map("thumbnail_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  owner      User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  folder     Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  owner      User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folder     Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
   document   Document?
+  thumbnail  FileThumbnail?
   versions   DocVersion[]
   shareLinks ShareLink[]
 
@@ -89,6 +92,17 @@ model Document {
   file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@map("documents")
+}
+
+// 首頁卡片縮圖：前端以畫布引擎繪製後上傳（見 docs/DECISIONS.md 2026-10-15）
+model FileThumbnail {
+  fileId String @id @map("file_id") @db.Uuid
+  mime   String
+  data   Bytes
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@map("file_thumbnails")
 }
 
 model DocVersion {

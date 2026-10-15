@@ -26,6 +26,7 @@ export function toFileDto(f: File): FileDto {
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),
     deletedAt: iso(f.deletedAt),
+    thumbnailAt: iso(f.thumbnailAt),
   };
 }
 

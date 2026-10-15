@@ -30,6 +30,18 @@ export function inflate(r: Rect, d: number, dy = d): Rect {
   return { x: r.x - d, y: r.y - dy, w: r.w + 2 * d, h: r.h + 2 * dy };
 }
 
+/**
+ * 縮圖尺寸：等比縮小到 maxW × maxH 以內，不放大（內容很少時維持 1:1）。至少 1 px
+ */
+export function thumbnailSize(content: Rect, maxW: number, maxH: number): { scale: number; width: number; height: number } {
+  const scale = Math.min(maxW / Math.max(content.w, 1), maxH / Math.max(content.h, 1), 1);
+  return {
+    scale,
+    width: Math.min(maxW, Math.max(1, Math.round(content.w * scale))),
+    height: Math.min(maxH, Math.max(1, Math.round(content.h * scale))),
+  };
+}
+
 export function intersects(a: Rect, b: Rect): boolean {
   return a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h;
 }

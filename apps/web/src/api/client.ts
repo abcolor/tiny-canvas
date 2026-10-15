@@ -18,7 +18,7 @@ export function setCsrfToken(token: string | null) {
 type Query = Record<string, string | number | boolean | null | undefined>;
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   query?: Query;
   headers?: Record<string, string>;

@@ -27,6 +27,8 @@ export interface FileDto {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** 首頁卡片縮圖的產生時間；沒有縮圖時為 null。讀取網址帶上此值，可長期快取 */
+  thumbnailAt: string | null;
 }
 
 export interface SearchResultDto {

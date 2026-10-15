@@ -36,6 +36,7 @@ interface Row {
   search_text: string;
   created_at: Date;
   updated_at: Date;
+  thumbnail_at: Date | null;
   score: number;
 }
 
@@ -50,7 +51,7 @@ export class SearchService {
   async search(ownerId: string, q: string): Promise<SearchResultDto[]> {
     const pattern = '%' + escapeLike(q) + '%';
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT id, folder_id, title, is_favorite, search_text, created_at, updated_at,
+      SELECT id, folder_id, title, is_favorite, search_text, created_at, updated_at, thumbnail_at,
              greatest(similarity(title, ${q}), similarity(search_text, ${q}))::float8 AS score
       FROM files
       WHERE owner_id = ${ownerId}::uuid
@@ -68,6 +69,7 @@ export class SearchService {
         createdAt: r.created_at.toISOString(),
         updatedAt: r.updated_at.toISOString(),
         deletedAt: null,
+        thumbnailAt: r.thumbnail_at ? r.thumbnail_at.toISOString() : null,
       },
       snippet: makeSnippet(r.search_text, q),
       score: Number(r.score),

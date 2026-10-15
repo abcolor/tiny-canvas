@@ -1,15 +1,43 @@
-import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import type { User } from '@tinycanvas/db';
-import { createFileSchema, updateFileSchema, type FileDto, type TrashResponse } from '@tinycanvas/shared';
+import {
+  createFileSchema,
+  MAX_THUMBNAIL_BYTES,
+  updateFileSchema,
+  type FileDto,
+  type TrashResponse,
+} from '@tinycanvas/shared';
 import { CurrentUser } from '../auth/current-user';
 import { isUuid, toFileDto, toFolderDto, UuidPipe } from '../common/dto';
-import { notFound } from '../common/errors';
+import { badRequest, notFound } from '../common/errors';
 import { parseBody } from '../common/zod';
 import { LibraryService } from './library.service';
+import { ThumbnailsService } from './thumbnails.service';
 
 @Controller('api/files')
 export class FilesController {
-  constructor(@Inject(LibraryService) private readonly lib: LibraryService) {}
+  constructor(
+    @Inject(LibraryService) private readonly lib: LibraryService,
+    @Inject(ThumbnailsService) private readonly thumbnails: ThumbnailsService,
+  ) {}
 
   /** ?folderId=<id|root>（預設 root）、?favorite=true、?recent=true、?trash=true */
   @Get()
@@ -62,5 +90,37 @@ export class FilesController {
   @HttpCode(200)
   async restore(@CurrentUser() user: User, @Param('id', UuidPipe) id: string): Promise<FileDto> {
     return toFileDto(await this.lib.restoreFile(user.id, id));
+  }
+
+  /** 首頁卡片縮圖。網址帶 ?v=<thumbnailAt>，內容不變，可長期快取 */
+  @Get(':id/thumbnail')
+  async getThumbnail(
+    @CurrentUser() user: User,
+    @Param('id', UuidPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const t = await this.thumbnails.get(user.id, id);
+    res.set({
+      'Content-Type': t.mime,
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return new StreamableFile(Buffer.from(t.data));
+  }
+
+  @Put(':id/thumbnail')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_THUMBNAIL_BYTES, files: 1 } }))
+  async putThumbnail(
+    @CurrentUser() user: User,
+    @Param('id', UuidPipe) id: string,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+  ): Promise<FileDto> {
+    if (!file) throw badRequest('invalid_request', 'missing file');
+    return toFileDto(await this.thumbnails.put(user.id, id, file.buffer));
+  }
+
+  @Delete(':id/thumbnail')
+  async removeThumbnail(@CurrentUser() user: User, @Param('id', UuidPipe) id: string): Promise<FileDto> {
+    return toFileDto(await this.thumbnails.remove(user.id, id));
   }
 }

@@ -4,6 +4,9 @@ export const GRID_SIZE = 8;
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'] as const;
+/** 首頁卡片縮圖（見 docs/DECISIONS.md 2026-10-15）：前端繪製，WebP 為主，瀏覽器不支援時用 PNG */
+export const THUMBNAIL_MIME_TYPES = ['image/webp', 'image/png'] as const;
+export const MAX_THUMBNAIL_BYTES = 512 * 1024;
 
 export const TRASH_RETENTION_DAYS = 30;
 /** 自動快照的最小間隔（見 SPEC.md 第 5.5 節） */

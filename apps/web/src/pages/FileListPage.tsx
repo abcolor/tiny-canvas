@@ -7,6 +7,7 @@ import { useFileActions } from '../components/fileActions';
 import { FileMenu } from '../components/Sidebar';
 import { BoardIcon } from '../components/BoardIcon';
 import { formatRelative } from '../lib/time';
+import { thumbnailUrl } from '../board/thumbnail';
 
 /** 首頁（最近檔案）、我的最愛、資料夾內容 */
 export function FileListPage({ mode }: { mode: 'recent' | 'favorite' | 'folder' }) {
@@ -93,7 +94,19 @@ function FileCard({ file, onOpen }: { file: FileDto; onOpen: () => void }) {
         className="flex w-full flex-col overflow-hidden rounded-xl border border-ink-100 bg-white text-left hover:border-ink-200 hover:shadow-sm"
       >
         <div className="flex h-28 items-center justify-center bg-[radial-gradient(circle,_#dedcd6_1px,_transparent_1px)] [background-size:12px_12px]">
-          <BoardIcon className="h-8 w-8 text-brand-400" />
+          {file.thumbnailAt ? (
+            <img
+              src={thumbnailUrl(file)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className="max-h-full max-w-full object-contain p-3"
+              data-testid="file-thumbnail"
+            />
+          ) : (
+            <BoardIcon className="h-8 w-8 text-brand-400" />
+          )}
         </div>
         <div className="flex flex-col gap-0.5 px-4 py-3">
           <span className="flex items-center gap-1.5 truncate text-sm font-medium">

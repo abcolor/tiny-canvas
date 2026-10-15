@@ -41,6 +41,7 @@ import {
   spacingGuides,
   toLocal,
   unionRects,
+  thumbnailSize,
   type AlignGuide,
   type Rect,
 } from './geometry';
@@ -1151,6 +1152,27 @@ export class BoardEditor {
     drawObjects(ctx, objs, rc);
     this.renderer.invalidateAll();
     return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))), 'image/png'));
+  }
+
+  /**
+   * 首頁卡片縮圖（見 docs/DECISIONS.md 2026-10-15）：整張畫布等比縮小到 maxWidth × maxHeight 以內，透明背景。
+   * 同步繪製，不等待字型與圖片（直接使用畫布上已載入的；縮小後多半是 LOD 的色塊與灰條），
+   * 因此可以在離開畫布、編輯器銷毀之前呼叫。沒有物件時回傳 null
+   */
+  renderThumbnail(maxWidth: number, maxHeight: number): HTMLCanvasElement | null {
+    const objs = this.scopeObjects('all');
+    if (!objs.length) return null;
+    // 縮圖期間載入完成的圖示、圖片不必重繪主畫布
+    const base = { ...this.baseRenderContext(), editing: null, exporting: true, canOpenLinks: false, invalidate: () => {} };
+    const b = inflate(unionRects(objs.map((o) => this.exportRect(o, { ...base, zoom: 1 })))!, 8);
+    const { scale, width, height } = thumbnailSize(b, maxWidth, maxHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(scale, 0, 0, scale, -b.x * scale, -b.y * scale);
+    drawObjects(ctx, objs, { ...base, zoom: scale });
+    return canvas;
   }
 
   /** 小地圖：簡化的內容（以快取圖片重用）加上目前視窗範圍。web app 在狀態變更時呼叫（建議節流） */

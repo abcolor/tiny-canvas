@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Cloud, CloudOff, Download, History, Keyboard, Loader2, Share2, Trash2 } from 'lucide-react';
 import type { BoardEditor } from '@tinycanvas/canvas-engine';
-import { localOrigin, restoreFromDoc } from '@tinycanvas/shared';
+import { getObjects, localOrigin, restoreFromDoc } from '@tinycanvas/shared';
 import { Button, cn, IconButton, shortcutLabel, Spinner, strings } from '@tinycanvas/ui';
 import { fileApi, invalidateTree, useFile, useFiles, useFolders } from '../api/hooks';
 import { useLayout } from '../components/AppLayout';
@@ -14,6 +14,14 @@ import { useBoardDoc, type SyncStatus } from './useBoardDoc';
 import { ShareDialog } from './ShareDialog';
 import { HistoryPanel, PreviewBanner, type PreviewState } from './HistoryPanel';
 import { LinkCardPicker } from './LinkCardPicker';
+import {
+  encodeThumbnail,
+  thumbnailApi,
+  thumbnailStale,
+  ThumbnailSync,
+  THUMBNAIL_MAX_HEIGHT,
+  THUMBNAIL_MAX_WIDTH,
+} from './thumbnail';
 
 export function BoardPage() {
   const { fileId } = useParams<{ fileId: string }>();
@@ -33,6 +41,44 @@ export function BoardPage() {
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [linkPicker, setLinkPicker] = useState<((id: string, title: string) => void) | null>(null);
   const editorRef = useRef<BoardEditor | null>(null);
+  const [editor, setEditor] = useState<BoardEditor | null>(null);
+  const thumbRef = useRef<ThumbnailSync | null>(null);
+  const fileData = file.data?.id === fileId ? file.data : undefined;
+
+  // 首頁卡片縮圖（見 docs/DECISIONS.md 2026-10-15）
+  useEffect(() => {
+    if (!editor || !fileData) return;
+    const id = fileData.id;
+    const sync = new ThumbnailSync(
+      editor.doc,
+      {
+        capture: () => {
+          const canvas = editor.renderThumbnail(THUMBNAIL_MAX_WIDTH, THUMBNAIL_MAX_HEIGHT);
+          return canvas ? encodeThumbnail(canvas) : null;
+        },
+        upload: (blob) => thumbnailApi.upload(id, blob),
+        remove: () => thumbnailApi.remove(id),
+        onSaved: () => {
+          void qc.invalidateQueries({ queryKey: ['files'] });
+          void qc.invalidateQueries({ queryKey: ['file'] });
+          void qc.invalidateQueries({ queryKey: ['search'] });
+        },
+      },
+      { stale: thumbnailStale(fileData, getObjects(editor.doc).size > 0) },
+    );
+    thumbRef.current = sync;
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') sync.flush();
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      sync.dispose();
+      if (thumbRef.current === sync) thumbRef.current = null;
+    };
+    // fileData 只用來在開啟時判斷是否過時；同一個檔案重新取得資料不必重建
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, fileData?.id, qc]);
 
   if (file.isError || board.status === 'denied') {
     return <Centered>{strings.board.notFound}</Centered>;
@@ -101,7 +147,12 @@ export function BoardPage() {
             exportOpen={exportOpen}
             onExportOpenChange={setExportOpen}
             onInsertLinkCard={(insert) => setLinkPicker(() => insert)}
-            onEditor={(e) => (editorRef.current = e)}
+            onEditor={(e) => {
+              // 編輯器銷毀前先畫出縮圖（React 不保證父子元件 effect 清除的先後）
+              if (!e) thumbRef.current?.dispose();
+              editorRef.current = e;
+              setEditor(e);
+            }}
           />
         ) : (
           <Centered>
