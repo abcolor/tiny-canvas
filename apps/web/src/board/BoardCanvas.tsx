@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { BoardEditor } from '@tinycanvas/canvas-engine';
+import { BoardEditor, CANVAS_BG } from '@tinycanvas/canvas-engine';
 import { textEditOrigin, type Editor } from '@tinycanvas/editor';
 import { getObjects, readObject, SHAPE_KINDS, type ShapeKind } from '@tinycanvas/shared';
 import { ConfirmDialog, MenuItem, MenuSeparator, PointMenu, strings } from '@tinycanvas/ui';
@@ -83,7 +83,7 @@ export function BoardCanvas(props: BoardCanvasProps) {
   }, [props.doc, props.readOnly]);
 
   return (
-    <div data-board-root className="relative h-full w-full overflow-hidden bg-ink-50">
+    <div data-board-root className="relative h-full w-full overflow-hidden" style={{ background: CANVAS_BG }}>
       <div ref={containerRef} className="absolute inset-0" data-testid="board-canvas" />
       {editor ? <BoardUi editor={editor} {...props} /> : null}
     </div>

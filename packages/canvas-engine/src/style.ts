@@ -5,7 +5,8 @@ export const FONT_FAMILY = '"Noto Sans TC Variable", "PingFang TC", "Microsoft J
 export const BRAND = '#0087dc';
 export const SELECTION_COLOR = BRAND;
 export const LINK_COLOR = '#006db6';
-export const CANVAS_BG = '#f8f9fa';
+/** 畫布背景色（使用者指定，2026-10-15） */
+export const CANVAS_BG = '#f3f5f8';
 export const GRID_DOT = '#d3d8de';
 
 /** 預設調色盤（樣式面板也使用）。name 是識別字，介面文字由 web app 自行對應 */
