@@ -598,6 +598,10 @@ export class EditorModel {
     if ((full.type === 'shape' || full.type === 'connector') && full.style?.strokeWidth === undefined) {
       full.style = { ...full.style, strokeWidth: NEW_STROKE_WIDTH };
     }
+    // 新形狀預設「只有外框＋透明背景」（存進文件，工具列顯示與外觀一致；切換虛線外框時維持透明）
+    if (full.type === 'shape' && full.style?.fillMode === undefined) {
+      full.style = { ...full.style, fillMode: 'outline', transparent: true };
+    }
     if (full.type === 'shape') {
       full.shapeKind ??= 'rectangle';
       full.icon ??= null;

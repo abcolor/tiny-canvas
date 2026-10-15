@@ -20,20 +20,25 @@ test('形狀外觀控制項', async ({ page }) => {
   await bar.getByRole('radio', { name: '圓形' }).click();
   await expect.poll(async () => (await obj()).shapeKind).toBe('ellipse');
 
-  // 尚未設定時視為「只有外框」
+  // 新形狀預設「只有外框＋透明背景」（DECISIONS.md 2026-10-15）
   await expect(bar.getByRole('radio', { name: '只有外框' })).toHaveAttribute('aria-checked', 'true');
+  await expect(bar.getByRole('button', { name: '透明背景' })).toHaveAttribute('aria-pressed', 'true');
+  expect((await obj()).style).toMatchObject({ fillMode: 'outline', transparent: true });
   await bar.getByRole('radio', { name: '整個填滿' }).click();
   await expect.poll(async () => (await obj()).style.fillMode).toBe('solid');
   // 整個填滿時透明開關停用
   await expect(bar.getByRole('button', { name: '透明背景' })).toBeDisabled();
+  // 切到虛線外框時維持透明，不會突然出現背景色
   await bar.getByRole('radio', { name: '虛線外框' }).click();
   await expect.poll(async () => (await obj()).style.fillMode).toBe('dashed');
+  expect((await obj()).style.transparent).toBe(true);
+  await expect(bar.getByRole('button', { name: '透明背景' })).toHaveAttribute('aria-pressed', 'true');
 
-  // 透明開關
-  await bar.getByRole('button', { name: '透明背景' }).click();
-  await expect.poll(async () => (await obj()).style.transparent).toBe(true);
+  // 透明開關：關掉後有淡色背景，再打開
   await bar.getByRole('button', { name: '透明背景' }).click();
   await expect.poll(async () => (await obj()).style.transparent).toBe(false);
+  await bar.getByRole('button', { name: '透明背景' }).click();
+  await expect.poll(async () => (await obj()).style.transparent).toBe(true);
 
   // 顏色
   await bar.getByRole('button', { name: '顏色', exact: true }).click();

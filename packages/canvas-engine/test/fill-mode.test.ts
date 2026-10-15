@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardObject, Style } from '@tinycanvas/shared';
 import { mixWithWhite, parseHex, resolveStyle } from '../src/style';
+import { makeModel } from './helpers';
 
 const shape = (style: Style): BoardObject => ({
   type: 'shape',
@@ -73,5 +74,34 @@ describe('圓角矩形的圓角半徑', () => {
     expect(wide.x).toBeGreaterThanOrEqual(18);
     const tall = shapeTextBox('rounded', 0, 0, 80, 200);
     expect(tall.y).toBeGreaterThanOrEqual(18);
+  });
+});
+
+// 新形狀預設「只有外框＋透明背景」（DECISIONS.md 2026-10-15）
+describe('新形狀的預設外觀', () => {
+  it('建立時存入只有外框、透明背景；背景確實透明', () => {
+    const { model } = makeModel([]);
+    const id = model.insert({ type: 'shape', x: 0, y: 0, w: 100, h: 60 });
+    const o = model.store.get(id)!;
+    expect(o.style).toMatchObject({ fillMode: 'outline', transparent: true });
+    expect(resolveStyle(o).fill).toBe('transparent');
+  });
+
+  it('切換成虛線外框時維持透明', () => {
+    const { model } = makeModel([]);
+    const id = model.insert({ type: 'shape', x: 0, y: 0, w: 100, h: 60 });
+    model.setStyle({ fillMode: 'dashed' }, [id]);
+    const o = model.store.get(id)!;
+    expect(o.style).toMatchObject({ fillMode: 'dashed', transparent: true });
+    expect(resolveStyle(o).fill).toBe('transparent');
+    expect(resolveStyle(o).strokeStyle).toBe('dashed');
+  });
+
+  it('有指定外觀時照指定的；其他物件類型不受影響', () => {
+    const { model } = makeModel([]);
+    const solid = model.insert({ type: 'shape', x: 0, y: 0, w: 100, h: 60, style: { fillMode: 'solid' } });
+    expect(model.store.get(solid)!.style).toEqual({ fillMode: 'solid', strokeWidth: 3 });
+    const wf = model.insert({ type: 'wireframe', x: 0, y: 0, w: 100, h: 60, componentKind: 'button' } as any);
+    expect(model.store.get(wf)!.style?.fillMode).toBeUndefined();
   });
 });
