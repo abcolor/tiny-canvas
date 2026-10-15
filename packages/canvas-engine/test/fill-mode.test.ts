@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardObject, Style } from '@tinycanvas/shared';
-import { mixWithWhite, parseHex, resolveStyle } from '../src/style';
+import { DEFAULT_PALETTE, mixWithWhite, parseHex, resolveStyle } from '../src/style';
 import { makeModel } from './helpers';
 
 const shape = (style: Style): BoardObject => ({
@@ -23,10 +23,10 @@ const shape = (style: Style): BoardObject => ({
 });
 
 describe('形狀外觀（填滿 / 外框 / 虛線外框、透明背景）', () => {
-  it('外框：非透明時背景為外框色 30% 的不透明淡色', () => {
+  it('外框（自訂顏色）：非透明時背景為外框色 21% 混 79% 白色的不透明淡色', () => {
     const st = resolveStyle(shape({ fillMode: 'outline', stroke: '#2a9687' }));
-    expect(st.fill).toBe(mixWithWhite(parseHex('#2a9687')!, 0.7));
-    expect(st.fill).toBe('#bfe0db');
+    expect(st.fill).toBe(mixWithWhite(parseHex('#2a9687')!, 0.79));
+    expect(st.stroke).toBe('#2a9687');
     expect(st.strokeStyle).toBe('solid');
   });
 
@@ -36,19 +36,21 @@ describe('形狀外觀（填滿 / 外框 / 虛線外框、透明背景）', () =
   });
 
   it('整個填滿不受透明開關與舊的半透明欄位影響', () => {
-    expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45', transparent: true })).fill).toBe('#2f3a45');
-    expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45', translucent: true })).fill).toBe('#2f3a45');
-    expect(resolveStyle(shape({ fillMode: 'outline', stroke: '#2a9687', translucent: true })).fill).toBe('#bfe0db');
+    const solidFill = mixWithWhite(parseHex('#2f3a45')!, 0.79);
+    expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45', transparent: true })).fill).toBe(solidFill);
+    expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45', translucent: true })).fill).toBe(solidFill);
+    expect(resolveStyle(shape({ fillMode: 'outline', stroke: '#2a9687', translucent: true })).fill).toBe(mixWithWhite(parseHex('#2a9687')!, 0.79));
   });
 
   it('虛線外框使用虛線', () => {
     const st = resolveStyle(shape({ fillMode: 'dashed', stroke: '#4a7fd4' }));
     expect(st.strokeStyle).toBe('dashed');
-    expect(st.fill).toBe(mixWithWhite(parseHex('#4a7fd4')!, 0.7));
+    expect(st.fill).toBe(mixWithWhite(parseHex('#4a7fd4')!, 0.79));
   });
 
-  it('填滿：背景即外框色，深色時文字自動為白色、淺色時為深色', () => {
-    expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45' }))).toMatchObject({ fill: '#2f3a45', textColor: '#ffffff' });
+  it('填滿（自訂顏色）：背景與只有外框時相同、沒有邊緣；文字依背景亮度自動選色', () => {
+    const bg = mixWithWhite(parseHex('#2f3a45')!, 0.79);
+    expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45' }))).toMatchObject({ fill: bg, stroke: bg, textColor: '#1f2933' });
     expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#fcf7d6' })).textColor).not.toBe('#ffffff');
     // 使用者指定的文字色優先
     expect(resolveStyle(shape({ fillMode: 'solid', stroke: '#2f3a45', textColor: '#ff0000' })).textColor).toBe('#ff0000');
@@ -58,6 +60,60 @@ describe('形狀外觀（填滿 / 外框 / 虛線外框、透明背景）', () =
     const st = resolveStyle(shape({ fill: '#ffffff', stroke: '#46525e' }));
     expect(st.fill).toBe('#ffffff');
     expect(st.stroke).toBe('#46525e');
+  });
+});
+
+// 調色盤（使用者指定，DECISIONS.md 2026-10-15）：色塊顯示色、選擇後的外框色與背景色
+const TABLE: [string, string, string][] = [
+  ['#FFFFFF', '#C6CFD9', '#FFFFFF'],
+  ['#D7DDE4', '#C6CFD9', '#F3F5F7'],
+  ['#A3ACB5', '#A2ACB9', '#E2E5EB'],
+  ['#848E97', '#7C8796', '#D0D8DF'],
+  ['#78AADE', '#4685D1', '#D8E6F5'],
+  ['#938CF0', '#635BEA', '#E0DEFB'],
+  ['#945BCE', '#691ABC', '#E0D0F0'],
+  ['#C577DA', '#AF41CC', '#EED8F4'],
+  ['#7FC4BD', '#56ACA0', '#D9EEEC'],
+  ['#63A09A', '#34786F', '#D0E3E2'],
+  ['#ABA391', '#867B62', '#E6E4DF'],
+  ['#B99796', '#9B6A68', '#EBE1E1'],
+  ['#D5838D', '#C5515E', '#F2DBDE'],
+  ['#E5AC7F', '#DA894C', '#F7E7DA'],
+  ['#F0D78F', '#E9C764', '#FAF3DE'],
+];
+
+describe('調色盤', () => {
+  it('15 色的排列與色碼和使用者指定的表格一致', () => {
+    expect(DEFAULT_PALETTE.map((p) => [p.color, p.border, p.background].map((c) => c.toUpperCase()))).toEqual(TABLE);
+  });
+
+  it('選擇色塊後，形狀的外框與背景使用對應的顏色（只有外框、虛線外框，不透明）', () => {
+    for (const [swatch, border, background] of TABLE) {
+      for (const fillMode of ['outline', 'dashed'] as const) {
+        const st = resolveStyle(shape({ fillMode, stroke: swatch }));
+        expect([st.stroke, st.fill].map((c) => c.toUpperCase()), swatch).toEqual([border, background]);
+      }
+    }
+  });
+
+  it('白色與第二格的外框色相同，但背景各自正確', () => {
+    expect(resolveStyle(shape({ fillMode: 'outline', stroke: '#ffffff' })).fill).toBe('#ffffff');
+    expect(resolveStyle(shape({ fillMode: 'outline', stroke: '#d7dde4' })).fill).toBe('#f3f5f7');
+  });
+
+  it('透明時沒有背景，外框照樣對應', () => {
+    expect(resolveStyle(shape({ fillMode: 'outline', stroke: '#78aade', transparent: true }))).toMatchObject({ fill: 'transparent', stroke: '#4685d1' });
+  });
+
+  it('整個填滿：背景與只有外框時相同，沒有邊緣（邊框與背景同色）', () => {
+    for (const [swatch, , background] of TABLE) {
+      const st = resolveStyle(shape({ fillMode: 'solid', stroke: swatch }));
+      expect([st.fill, st.stroke].map((c) => c.toUpperCase()), swatch).toEqual([background, background]);
+    }
+  });
+
+  it('新形狀（未指定顏色）使用第 1 列第 4 格：外框 #7C8796、背景 #D0D8DF', () => {
+    expect(resolveStyle(shape({ fillMode: 'outline' }))).toMatchObject({ stroke: '#7c8796', fill: '#d0d8df' });
   });
 });
 

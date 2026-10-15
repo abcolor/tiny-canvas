@@ -190,7 +190,7 @@ export function StyleBar({
               <ColorPicker
                 label={s.fill}
                 value={style.fill}
-                swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.fill, stroke: p.stroke, text: p.text }))}
+                swatches={FILL_SWATCHES}
                 onPick={(c, entry) => setStyle(entry ? { fill: entry.color, stroke: entry.stroke, textColor: entry.text } : { fill: c })}
               />
             ) : null}
@@ -209,7 +209,7 @@ export function StyleBar({
               label={s.stroke}
               value={style.stroke}
               fallback="#7a766a"
-              swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
+              swatches={LINE_SWATCHES}
               onPick={(c) => setStyle({ stroke: c })}
               extra={
                 // 連線的實線 / 虛線改由工具列上的按鈕切換
@@ -260,7 +260,7 @@ export function StyleBar({
                 label={s.textColor}
                 value={style.textColor}
                 fallback="#33322d"
-                swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
+                swatches={LINE_SWATCHES}
                 onPick={(c) => setStyle({ textColor: c })}
               />
                 }
@@ -380,7 +380,7 @@ function ShapeAppearance({
       <ColorPicker
         label={s.color}
         value={style.stroke ?? DEFAULT_SHAPE_COLOR}
-        swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
+        swatches={SHAPE_SWATCHES}
         onPick={(c) => withMode({ stroke: c })}
       />
       <StrokeWidthMenu label={s.strokeWidth} value={style.strokeWidth ?? 1.5} onPick={(v) => onStyle({ strokeWidth: v })} />
@@ -480,7 +480,7 @@ function IconStyleControls({
       <ColorPicker
         label={s.color}
         value={value ?? '#33322d'}
-        swatches={DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }))}
+        swatches={LINE_SWATCHES}
         onPick={onColor}
       />
       <StrokeWidthMenu label={s.weight} value={weight} options={[1, 1.5, 2, 2.5, 3]} onPick={onWeight} />
@@ -595,10 +595,18 @@ function Divider() {
 
 interface Swatch {
   name: string;
+  /** 選擇後套用的值 */
   color: string;
+  /** 色盤上顯示的顏色（省略時與 color 相同） */
+  display?: string;
   stroke?: string;
   text?: string;
 }
+
+/** 色盤：顯示色塊顏色；形狀套用色塊顏色本身（繪製時由引擎對應外框與背景），其他物件套用外框色 */
+const SHAPE_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.color }));
+const LINE_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.border, display: p.color }));
+const FILL_SWATCHES: Swatch[] = DEFAULT_PALETTE.map((p) => ({ name: p.name, color: p.background, display: p.color, stroke: p.border, text: p.text }));
 
 function ColorPicker({
   label,
@@ -617,20 +625,22 @@ function ColorPicker({
   extra?: React.ReactNode;
 }) {
   const customRef = useRef<HTMLInputElement>(null);
-  const isCustom = Boolean(value) && !swatches.some((sw) => sw.color.toLowerCase() === value!.toLowerCase());
+  // 多個色塊可能套用相同的值（例如白色與第二格的外框色相同），只標示第一個
+  const match = value ? swatches.find((sw) => sw.color.toLowerCase() === value.toLowerCase()) : undefined;
+  const isCustom = Boolean(value) && !match;
   return (
     <Popover>
       <Tooltip content={label}>
         <PopoverTrigger asChild>
           <button type="button" aria-label={label} className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-ink-100">
-            <span className="h-4 w-4 rounded-full border border-ink-200" style={{ background: value ?? fallback }} />
+            <span className="h-4 w-4 rounded-full border border-ink-200" style={{ background: match?.display ?? value ?? fallback }} />
           </button>
         </PopoverTrigger>
       </Tooltip>
       <PopoverContent className="w-auto p-1.5">
         <div className="grid w-[110px] grid-cols-4 gap-0.5" role="listbox" aria-label={label}>
           {swatches.map((sw) => {
-            const selected = value?.toLowerCase() === sw.color.toLowerCase();
+            const selected = sw === match;
             const title = strings.colors[sw.name] ?? sw.name;
             return (
               <button
@@ -648,7 +658,7 @@ function ColorPicker({
               >
                 <span
                   className={cn('h-[22px] w-[22px] rounded-full border', selected ? 'border-white ring-2 ring-brand-600' : 'border-ink-200')}
-                  style={{ background: sw.color }}
+                  style={{ background: sw.display ?? sw.color }}
                 />
               </button>
             );
@@ -674,7 +684,7 @@ function ColorPicker({
               type="color"
               tabIndex={-1}
               aria-hidden
-              value={/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : '#4d5c6d'}
+              value={/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : DEFAULT_SHAPE_COLOR}
               onChange={(e) => onPick(e.target.value)}
               className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
             />

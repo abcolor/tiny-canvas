@@ -43,14 +43,14 @@ test('形狀外觀控制項', async ({ page }) => {
   // 顏色
   await bar.getByRole('button', { name: '顏色', exact: true }).click();
   await page.getByRole('option', { name: '青綠' }).click();
-  await expect.poll(async () => (await obj()).style.stroke).toBe('#28afa0');
+  await expect.poll(async () => (await obj()).style.stroke).toBe('#7fc4bd');
   expect((await obj()).style.fillMode).toBe('dashed');
 
   // 一次復原只還原上一個操作
   await page.keyboard.press('Escape');
   await page.evaluate(() => (window as any).__tcEditor.focus());
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
-  await expect.poll(async () => (await obj()).style.stroke).not.toBe('#28afa0');
+  await expect.poll(async () => (await obj()).style.stroke).not.toBe('#7fc4bd');
 });
 
 test('浮動工具列不會超出畫布右側', async ({ page }) => {
@@ -84,6 +84,26 @@ test('顏色選擇器：15 個預設色與自訂顏色', async ({ page }) => {
   await expect(list.getByRole('button', { name: '自訂顏色' })).toBeVisible();
   const names = await list.getByRole('option').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
   expect(names).toEqual(['白色', '淺灰', '灰色', '深灰', '藍色', '靛藍', '紫色', '洋紅', '青綠', '深綠', '褐灰', '玫瑰褐', '紅色', '橘色', '黃色']);
+  // 色塊顏色與使用者指定的色盤一致（DECISIONS.md 2026-10-15）
+  const colors = await list.getByRole('option').evaluateAll((els) => els.map((e) => getComputedStyle(e.firstElementChild as Element).backgroundColor));
+  const hex = (c: string) => '#' + c.match(/\d+/g)!.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, '0')).join('').toUpperCase();
+  expect(colors.map(hex)).toEqual([
+    '#FFFFFF', '#D7DDE4', '#A3ACB5', '#848E97',
+    '#78AADE', '#938CF0', '#945BCE', '#C577DA',
+    '#7FC4BD', '#63A09A', '#ABA391', '#B99796',
+    '#D5838D', '#E5AC7F', '#F0D78F',
+  ]);
+  // 新形狀預設選取第 1 列第 4 格
+  await expect(list.getByRole('option', { name: '深灰' })).toHaveAttribute('aria-selected', 'true');
+  // 白色與淺灰的外框色相同，選擇後仍能分辨
+  const stroke = () => page.evaluate(() => { const ed = (window as any).__tcEditor; return ed.model.store.get(ed.getState().selection[0]).style.stroke; });
+  await list.getByRole('option', { name: '淺灰' }).click();
+  await expect.poll(stroke).toBe('#d7dde4');
+  await expect(list.getByRole('option', { name: '淺灰' })).toHaveAttribute('aria-selected', 'true');
+  await expect(list.getByRole('option', { name: '白色' })).toHaveAttribute('aria-selected', 'false');
+  await list.getByRole('option', { name: '白色' }).click();
+  await expect.poll(stroke).toBe('#ffffff');
+  await expect(list.getByRole('option', { name: '白色' })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('工具列：外面有「複製一份」，複製樣式、套用樣式、鎖定在「更多」裡', async ({ page }) => {

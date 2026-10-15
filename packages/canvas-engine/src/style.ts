@@ -12,45 +12,49 @@ export const GRID_DOT = '#d3d8de';
 export const TEXT_DEFAULT_COLOR = '#1f2933';
 
 /**
- * 預設調色盤：15 色，依使用者指定（2026-10-12），介面以每列 4 色排列，最後一格為自訂顏色。
- * - color：原色，用於形狀顏色、圖示、外框與文字
- * - fill：區塊、表格等「填色」選擇器使用的淡色背景（原色調淡 85%）
- * - stroke：搭配 fill 的外框色（白色改用淺灰，否則在白底上看不見）
+ * 預設調色盤：15 色，依使用者指定（2026-10-15），介面以每列 4 色排列，最後一格為自訂顏色。
+ * - color：色盤上顯示的顏色。形狀選色時存這個值（style.stroke），繪製時再對應成 border / background；
+ *   白色與 silver 的外框色相同，只存外框色會分不出選的是哪一格
+ * - border：形狀繪製時的外框色；連線、文字、圖示選色時直接存這個值
+ * - background：形狀只有外框 / 虛線外框且不透明時、以及整個填滿時的背景；區塊、表格等「填色」選擇器的背景
  */
-export const PALETTE_COLORS: { name: string; color: string }[] = [
-  { name: 'white', color: '#ffffff' },
-  { name: 'silver', color: '#c5cfda' },
-  { name: 'gray', color: '#798897' },
-  { name: 'slate', color: '#4d5c6d' },
-  { name: 'blue', color: '#2888d7' },
-  { name: 'indigo', color: '#665bf4' },
-  { name: 'purple', color: '#730fc3' },
-  { name: 'magenta', color: '#bf36d3' },
-  { name: 'teal', color: '#28afa0' },
-  { name: 'green', color: '#007a6f' },
-  { name: 'taupe', color: '#897a5f' },
-  { name: 'rose', color: '#a46768' },
-  { name: 'red', color: '#d5475b' },
-  { name: 'orange', color: '#e9843c' },
-  { name: 'yellow', color: '#f0c54f' },
+export const PALETTE_COLORS: { name: string; color: string; border: string; background: string }[] = [
+  { name: 'white', color: '#ffffff', border: '#c6cfd9', background: '#ffffff' },
+  { name: 'silver', color: '#d7dde4', border: '#c6cfd9', background: '#f3f5f7' },
+  { name: 'gray', color: '#a3acb5', border: '#a2acb9', background: '#e2e5eb' },
+  { name: 'slate', color: '#848e97', border: '#7c8796', background: '#d0d8df' },
+  { name: 'blue', color: '#78aade', border: '#4685d1', background: '#d8e6f5' },
+  { name: 'indigo', color: '#938cf0', border: '#635bea', background: '#e0defb' },
+  { name: 'purple', color: '#945bce', border: '#691abc', background: '#e0d0f0' },
+  { name: 'magenta', color: '#c577da', border: '#af41cc', background: '#eed8f4' },
+  { name: 'teal', color: '#7fc4bd', border: '#56aca0', background: '#d9eeec' },
+  { name: 'green', color: '#63a09a', border: '#34786f', background: '#d0e3e2' },
+  { name: 'taupe', color: '#aba391', border: '#867b62', background: '#e6e4df' },
+  { name: 'rose', color: '#b99796', border: '#9b6a68', background: '#ebe1e1' },
+  { name: 'red', color: '#d5838d', border: '#c5515e', background: '#f2dbde' },
+  { name: 'orange', color: '#e5ac7f', border: '#da894c', background: '#f7e7da' },
+  { name: 'yellow', color: '#f0d78f', border: '#e9c764', background: '#faf3de' },
 ];
 
-/** 淺色（例如白色）當外框時改用的邊框色 */
-export const LIGHT_STROKE = '#c5cfda';
-/** 形狀的預設外框色（調色盤的 slate） */
-export const DEFAULT_SHAPE_COLOR = '#4d5c6d';
+/** 淺色（例如白色）當外框時改用的邊框色（調色盤白色的外框色） */
+export const LIGHT_STROKE = '#c6cfd9';
+/** 形狀的預設顏色（調色盤的 slate；繪製時外框為 #7c8796） */
+export const DEFAULT_SHAPE_COLOR = '#848e97';
+/** 未設定外觀的舊形狀與其他物件的預設外框色 */
+const BASE_STROKE = '#7c8796';
+/** 自訂顏色（不在調色盤內）的淡色背景：外框色 21% 混 79% 白色，與調色盤的背景色相近 */
+const CUSTOM_BACKGROUND_WHITE = 0.79;
 
-export const DEFAULT_PALETTE: { name: string; color: string; fill: string; stroke: string; text: string }[] = PALETTE_COLORS.map(({ name, color }) => {
-  const rgb = parseHex(color)!;
-  return {
-    name,
-    color,
-    fill: mixWithWhite(rgb, 0.85),
-    stroke: luminance(rgb) > 0.9 ? LIGHT_STROKE : color,
-    text: TEXT_DEFAULT_COLOR,
-  };
-});
+export const DEFAULT_PALETTE: { name: string; color: string; border: string; background: string; text: string }[] = PALETTE_COLORS.map((p) => ({
+  ...p,
+  text: TEXT_DEFAULT_COLOR,
+}));
 
+const BY_COLOR = new Map(PALETTE_COLORS.map((p) => [p.color, p]));
+/** 形狀的顏色是調色盤的色塊時回傳該色（比對不分大小寫） */
+export function paletteEntry(color: string | undefined): (typeof PALETTE_COLORS)[number] | undefined {
+  return color ? BY_COLOR.get(color.toLowerCase()) : undefined;
+}
 
 export interface ResolvedStyle {
   fill: string;
@@ -67,7 +71,7 @@ export interface ResolvedStyle {
 
 const BASE: ResolvedStyle = {
   fill: '#ffffff',
-  stroke: DEFAULT_SHAPE_COLOR,
+  stroke: BASE_STROKE,
   strokeWidth: 1.5,
   strokeStyle: 'solid',
   textColor: TEXT_DEFAULT_COLOR,
@@ -112,21 +116,28 @@ export function resolveStyle(o: BoardObject): ResolvedStyle {
 
 /**
  * 形狀外觀（見 SPEC.md 第 4.1 節）：背景色由外框色推算。
- * - outline / dashed：透明時沒有背景；否則為外框色 30% 混 70% 白色的不透明淡色
- * - solid：背景即外框色；未指定文字色時依亮度自動選白色或深色
+ * - outline / dashed：透明時沒有背景；否則為調色盤指定的背景色（自訂顏色為外框色 21% 混 79% 白色）
+ * - solid：背景與 outline 不透明時相同，沒有邊緣（邊框與背景同色）。未指定文字色時依背景亮度自動選白色或深色
  */
 function applyFillMode(out: ResolvedStyle, s: Style) {
-  const color = out.stroke;
+  const color = s.stroke ?? DEFAULT_SHAPE_COLOR;
   const rgb = parseHex(color);
   const mode = s.fillMode!;
   out.strokeStyle = mode === 'dashed' ? 'dashed' : 'solid';
+  out.stroke = color;
   if (!rgb) return;
-  if (luminance(rgb) > 0.9) out.stroke = LIGHT_STROKE;
+  // 調色盤的顏色使用指定的外框、背景與填滿色；自訂顏色由它本身推算
+  const entry = paletteEntry(color);
+  if (entry) out.stroke = entry.border;
+  else if (luminance(rgb) > 0.9) out.stroke = LIGHT_STROKE;
+  const background = entry ? entry.background : mixWithWhite(rgb, CUSTOM_BACKGROUND_WHITE);
   if (mode === 'solid') {
-    out.fill = color;
-    if (!s.textColor) out.textColor = luminance(rgb) < 0.55 ? '#ffffff' : TEXT_DEFAULT_COLOR;
+    // 整個填滿：背景與「只有外框」時相同，只是沒有邊緣（邊框畫成與背景同色）
+    out.fill = background;
+    out.stroke = background;
+    if (!s.textColor) out.textColor = luminance(parseHex(background)!) < 0.55 ? '#ffffff' : TEXT_DEFAULT_COLOR;
   } else {
-    out.fill = s.transparent ? 'transparent' : mixWithWhite(rgb, 0.7);
+    out.fill = s.transparent ? 'transparent' : background;
   }
 }
 
