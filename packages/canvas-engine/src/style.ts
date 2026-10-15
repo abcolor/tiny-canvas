@@ -11,6 +11,8 @@ export const GRID_DOT = '#d3d8de';
 
 /** 預設調色盤（樣式面板也使用）。name 是識別字，介面文字由 web app 自行對應 */
 export const TEXT_DEFAULT_COLOR = '#1f2933';
+/** 文字物件的預設文字色：調色盤最深灰的文字色（使用者指定，2026-10-15） */
+export const TEXT_OBJECT_COLOR = '#2c3743';
 
 /**
  * 預設調色盤：15 色，依使用者指定（2026-10-15），介面以每列 4 色排列，最後一格為自訂顏色。
@@ -47,7 +49,7 @@ const BASE_STROKE = '#7c8796';
 const CUSTOM_BACKGROUND_WHITE = 0.79;
 
 /** 「文字顏色」選擇器選這兩個灰色時另外指定的顏色（使用者指定，2026-10-15）；其他顏色使用外框色 */
-const TEXT_COLOR_OVERRIDES: Record<string, string> = { gray: '#7c8796', slate: '#2c3743' };
+const TEXT_COLOR_OVERRIDES: Record<string, string> = { gray: '#7c8796', slate: TEXT_OBJECT_COLOR };
 
 /**
  * - text：區塊、表格等「填色」選擇器選色時一併設定的文字色
@@ -92,7 +94,7 @@ const BASE: ResolvedStyle = {
 };
 
 const TYPE_DEFAULTS: Partial<Record<BoardObject['type'], Partial<ResolvedStyle>>> = {
-  text: { fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeStyle: 'none', textAlign: 'left', verticalAlign: 'top' },
+  text: { fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeStyle: 'none', textAlign: 'left', verticalAlign: 'top', textColor: TEXT_OBJECT_COLOR },
   section: { fill: '#f1f3f5', stroke: '#d4dae0', strokeWidth: 1, textColor: '#46525e', textAlign: 'left', verticalAlign: 'top' },
   connector: { stroke: '#5b6672', strokeWidth: 1.5, textColor: '#46525e', fontSize: 13 },
   link_card: { fill: '#ffffff', stroke: '#d4dae0', strokeWidth: 1, textAlign: 'left' },

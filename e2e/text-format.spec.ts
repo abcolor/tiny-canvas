@@ -125,3 +125,21 @@ test('文字顏色選單：灰色與深灰使用指定的文字色', async ({ pa
     await page.keyboard.press('Escape');
   }
 });
+
+// 用文字工具加入的文字預設為最深的灰色（DECISIONS.md 2026-10-15）
+test('加入文字時預設為最深的灰色', async ({ page }) => {
+  await createUserAndLogin(page, 'textdefault');
+  await newBoard(page);
+  const canvas = (await page.getByTestId('board-canvas').boundingBox())!;
+  await page.getByTestId('board-canvas').click({ position: { x: 400, y: 300 } });
+  await page.keyboard.press('t');
+  await page.mouse.click(canvas.x + 300, canvas.y + 250);
+  await page.keyboard.type('預設顏色');
+  await page.keyboard.press('Escape');
+  const t = (await boardObjects(page)).find((o) => o.type === 'text')!;
+  expect(t.style?.textColor).toBeUndefined();
+  expect(await page.evaluate(() => (window as any).__tcEditor.getState().selection)).toEqual([t.id]);
+  const bar = page.getByRole('toolbar', { name: '樣式工具列' });
+  await bar.getByRole('button', { name: '文字顏色' }).click();
+  await expect(page.getByRole('listbox', { name: '文字顏色' }).getByRole('option', { name: '深灰', exact: true })).toHaveAttribute('aria-selected', 'true');
+});

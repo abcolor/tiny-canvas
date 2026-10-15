@@ -169,3 +169,19 @@ describe('新形狀的預設外觀', () => {
     expect(model.store.get(wf)!.style?.fillMode).toBeUndefined();
   });
 });
+
+// 文字物件的預設文字色為最深灰的文字色（DECISIONS.md 2026-10-15）
+describe('文字物件的預設顏色', () => {
+  const text = (extra: Record<string, unknown> = {}) =>
+    ({ type: 'text', id: Math.random().toString(36), x: 0, y: 0, w: 100, h: 20, rotation: 0, z: 'a0', parentId: null, locked: false, style: {}, text: [], fixedWidth: false, variant: 'body', ...extra }) as unknown as BoardObject;
+
+  it('文字與標題預設 #2C3743；指定顏色時照指定的', () => {
+    expect(resolveStyle(text()).textColor).toBe('#2c3743');
+    expect(resolveStyle(text({ variant: 'heading' })).textColor).toBe('#2c3743');
+    expect(resolveStyle(text({ style: { textColor: '#c5515e' } })).textColor).toBe('#c5515e');
+  });
+
+  it('形狀內的文字預設色不變', () => {
+    expect(resolveStyle(shape({})).textColor).toBe('#1f2933');
+  });
+});

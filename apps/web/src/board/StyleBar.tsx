@@ -258,8 +258,8 @@ export function StyleBar({
                 colorPicker={
                   <ColorPicker
                 label={s.textColor}
-                value={style.textColor}
-                fallback="#33322d"
+                value={style.textColor ?? (onlyText ? resolveStyle(first).textColor : undefined)}
+                fallback={resolveStyle(first).textColor}
                 swatches={TEXT_SWATCHES}
                 onPick={(c) => setStyle({ textColor: c })}
               />
