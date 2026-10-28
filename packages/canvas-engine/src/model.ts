@@ -1143,6 +1143,25 @@ export class EditorModel {
   }
 
   /**
+   * 圖示以畫面的水平（左右）或垂直（上下）軸鏡像，各自繞自身中心。旋轉過的圖示：
+   * 畫面翻轉 F·R(θ) = R(−θ)·F，所以切換物件自身的翻轉並把角度改成 −θ，框的位置不變
+   */
+  flipEach(axis: 'x' | 'y', ids = this.selection) {
+    const targets = ids.flatMap((id) => {
+      const o = this.store.get(id);
+      return o?.type === 'icon' && !this.isLocked(id) ? [o] : [];
+    });
+    if (!targets.length) return;
+    this.transact(() => {
+      for (const o of targets) {
+        const patch: Record<string, unknown> = axis === 'x' ? { flipX: !o.flipX } : { flipY: !o.flipY };
+        if (o.rotation) patch.rotation = norm360(-o.rotation);
+        this.setFields(o.id, patch);
+      }
+    });
+  }
+
+  /**
    * 把選取從 from 框縮放到 to 框。群組：子孫依比例縮放；區塊：只改區塊本身；
    * 旋轉過的物件只做等比縮放（呼叫端須保證 sx = sy，見 mustScaleProportionally）。
    */

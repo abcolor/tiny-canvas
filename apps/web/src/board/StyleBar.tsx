@@ -16,6 +16,8 @@ import {
   Check,
   ClipboardCopy,
   Copy,
+  FlipHorizontal2,
+  FlipVertical2,
   Group,
   Lock,
   MoreHorizontal,
@@ -204,6 +206,7 @@ export function StyleBar({
                 onWeight={(w) => setStyle({ strokeWidth: w })}
                 onReplace={(iconName) => update({ iconName })}
                 onRotate={state.can.rotate ? () => editor.rotateEach(90) : undefined}
+                onFlip={state.can.rotate ? (axis) => editor.flipEach(axis) : undefined}
               />
             ) : onlyText ? null : (
             <ColorPicker
@@ -466,6 +469,7 @@ function IconStyleControls({
   onWeight,
   onReplace,
   onRotate,
+  onFlip,
 }: {
   value?: string;
   weight: number;
@@ -474,6 +478,7 @@ function IconStyleControls({
   onWeight: (w: number) => void;
   onReplace: (iconName: string) => void;
   onRotate?: () => void;
+  onFlip?: (axis: 'x' | 'y') => void;
 }) {
   const s = strings.icons;
   const [open, setOpen] = useState(false);
@@ -509,6 +514,23 @@ function IconStyleControls({
           </button>
         </Tooltip>
       ) : null}
+      {onFlip
+        ? ([
+            ['x', s.flipHorizontal, FlipHorizontal2],
+            ['y', s.flipVertical, FlipVertical2],
+          ] as const).map(([axis, label, Icon]) => (
+            <Tooltip key={axis} content={label}>
+              <button
+                type="button"
+                aria-label={label}
+                onClick={() => onFlip(axis)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100"
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          ))
+        : null}
       <IconLibrary open={open} onOpenChange={setOpen} onPick={onReplace} title={s.replace} current={current} />
     </>
   );

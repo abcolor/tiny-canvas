@@ -555,6 +555,10 @@ const iconRenderer: ObjectRenderer<IconObject> = {
       }
       ctx.save();
       ctx.translate(x, y);
+      if (o.flipX || o.flipY) {
+        ctx.translate(o.flipX ? size : 0, o.flipY ? size : 0);
+        ctx.scale(o.flipX ? -1 : 1, o.flipY ? -1 : 1);
+      }
       const s = size / 24;
       ctx.scale(s, s);
       ctx.strokeStyle = color;

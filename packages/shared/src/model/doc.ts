@@ -161,7 +161,7 @@ export function readObject(m: YObject): BoardObject | null {
     case 'group':
       return { ...base, type, rotation: 0 };
     case 'icon':
-      return { ...base, type, iconName: str(m.get('iconName'), 'Circle') };
+      return { ...base, type, iconName: str(m.get('iconName'), 'Circle'), flipX: m.get('flipX') === true, flipY: m.get('flipY') === true };
   }
 }
 

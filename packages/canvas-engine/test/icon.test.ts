@@ -101,3 +101,54 @@ describe('圖示旋轉 90 度按鈕', () => {
     expect(raw(doc, 'a')!.rotation).toBe(0);
   });
 });
+
+describe('圖示水平與垂直翻轉', () => {
+  it('切換各自的 flipX / flipY，多選時一次 transaction、位置不變；再按一次恢復', () => {
+    const { model, doc } = makeModel([
+      { type: 'icon', id: 'a', x: 0, y: 0, w: 48, h: 48, iconName: 'Star' },
+      { type: 'icon', id: 'b', x: 200, y: 0, w: 48, h: 48, iconName: 'Star', z: 'a1' },
+    ]);
+    const tx = countTransactions(doc);
+    model.flipEach('x', ['a', 'b']);
+    tx.stop();
+    expect(tx.list).toEqual([localOrigin]);
+    expect(raw(doc, 'a')).toMatchObject({ x: 0, y: 0, flipX: true });
+    expect(raw(doc, 'b')).toMatchObject({ x: 200, y: 0, flipX: true });
+    model.flipEach('y', ['a']);
+    expect(readObject(getObjects(doc).get('a')!)).toMatchObject({ flipX: true, flipY: true });
+    model.flipEach('x', ['a']);
+    expect(readObject(getObjects(doc).get('a')!)).toMatchObject({ flipX: false, flipY: true });
+  });
+
+  it('舊資料沒有翻轉欄位時視為未翻轉', () => {
+    const { doc } = makeModel([{ type: 'icon', id: 'a', x: 0, y: 0, w: 48, h: 48, iconName: 'Star' }]);
+    expect(readObject(getObjects(doc).get('a')!)).toMatchObject({ flipX: false, flipY: false });
+  });
+
+  it('旋轉過的圖示以畫面的軸翻轉：角度變成 −θ', () => {
+    const { model, doc } = makeModel([{ type: 'icon', id: 'a', x: 0, y: 0, w: 48, h: 48, iconName: 'Star', rotation: 90 }]);
+    model.flipEach('x', ['a']);
+    expect(raw(doc, 'a')).toMatchObject({ x: 0, y: 0, rotation: 270, flipX: true });
+  });
+
+  it('鎖定的圖示與其他類型的物件不翻轉', () => {
+    const { model, doc } = makeModel([
+      { type: 'icon', id: 'a', x: 0, y: 0, w: 48, h: 48, iconName: 'Star', locked: true },
+      { type: 'shape', id: 's', x: 100, y: 0, w: 48, h: 48, shapeKind: 'rectangle', z: 'a1' },
+    ]);
+    model.flipEach('x', ['a', 's']);
+    expect(raw(doc, 'a')).toMatchObject({ flipX: false });
+    expect(raw(doc, 's')).not.toHaveProperty('flipX');
+  });
+
+  it('繪製時在圖示框內鏡像', () => {
+    const { model, doc } = makeModel([{ type: 'icon', id: 'i', x: 0, y: 0, w: 48, h: 48, iconName: 'Database' }]);
+    model.flipEach('x', ['i']);
+    const o = readObject(getObjects(doc).get('i')!)!;
+    const scales: number[][] = [];
+    const { ctx } = mockCtx();
+    (ctx as any).scale = (sx: number, sy: number) => scales.push([sx, sy]);
+    getRenderer('icon').draw(ctx, o, rc(model));
+    expect(scales[0]).toEqual([-1, 1]);
+  });
+});

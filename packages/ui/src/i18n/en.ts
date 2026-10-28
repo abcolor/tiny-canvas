@@ -146,6 +146,8 @@ export const en = {
     total: '{n} Lucide icons',
     replace: 'Replace icon',
     rotate: 'Rotate 90°',
+    flipHorizontal: 'Flip horizontal',
+    flipVertical: 'Flip vertical',
     color: 'Color',
     weight: 'Stroke width',
   },

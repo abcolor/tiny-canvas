@@ -320,6 +320,9 @@ export interface IconObject extends Base {
   type: 'icon';
   /** lucide-react 的圖示名稱（PascalCase，例如 'Database'） */
   iconName: string;
+  /** 在物件自身座標中左右 / 上下鏡像（先翻轉再旋轉） */
+  flipX: boolean;
+  flipY: boolean;
 }
 
 export type BoardObject =

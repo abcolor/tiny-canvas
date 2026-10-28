@@ -620,6 +620,9 @@ export class BoardEditor {
   rotateEach(delta: number) {
     if (!this.readOnly) this.step(() => this.model.rotateEach(delta));
   }
+  flipEach(axis: 'x' | 'y') {
+    if (!this.readOnly) this.step(() => this.model.flipEach(axis));
+  }
   bringForward() {
     this.step(() => this.model.bringForward());
   }

@@ -137,6 +137,8 @@ export const zhTW: Strings = {
     total: '共 {n} 個 Lucide 圖示',
     replace: '更換圖示',
     rotate: '旋轉 90 度',
+    flipHorizontal: '水平翻轉',
+    flipVertical: '垂直翻轉',
     color: '顏色',
     weight: '線條粗細',
   },
